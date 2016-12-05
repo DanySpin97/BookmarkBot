@@ -1,0 +1,5 @@
+{
+    "require": {
+        "danyspin97/php-bot-framework": "^1.0"
+    }
+}
