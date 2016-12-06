@@ -50,10 +50,10 @@ CREATE TABLE Bookmark (
 CREATE TABLE Bookmark_Tag (
 
     /* Id of the bookmark */
-    Bookmark_id int NOT NULL,
+    bookmark_id int NOT NULL,
 
     /* Id of the tag */
-    Tag_id int NOT NULL,
+    tag_id int NOT NULL,
 
     /* Primary keys are both ids */
     PRIMARY KEY (Bookmark_id, Tag_id),
