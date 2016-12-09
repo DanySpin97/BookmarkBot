@@ -148,6 +148,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                         $this->redis->delete($this->chat_id . ':bookmark');
                         $this->redis->delete($this->chat_id . ':hashtags');
                         $this->redis->delete($this->chat_id . ':message_id');
+                        $this->redis->delete($this->chat_id . ':index');
 
 
                     } else {
@@ -178,10 +179,30 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
             if (strpos($callback_query['data'], 'back')) {
 
                 // Get id from back (eg: back_id)
-                $bookmark_id = (explode('_', $callback_query['data'], 2)[1];
+                $bookmark_id = (explode('_', $callback_query['data'], 2))[1];
 
                 // Get bookmark and hashtags related
                 $this->getBookmark($bookmark_id);
+
+                // Add keyboard for editing bookmark
+                $this->addEditBookmarkKeyboard($this->bookmark, $this->hashtag);
+
+                // If the user was browsing the bookmarks
+                if ($this->redis->exists($this->chat_id . ':index')) {
+
+                    // add a back button
+                    $this->keyboard->addButton($this->local[$this->language]['Back_Button'], 'callback_data', 'back');
+
+                }
+
+                // Add a button to go to the menu
+                $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
+
+                // Show the bookmark to the user
+                $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark($this->bookmark, $this->hashtag), $this->keyboard->get());
+
+                // Change status
+                $this->setStatus(MENU);
 
             // Check if the user choosed a language (choose language start)
             } elseif (strpos($callback_query['data'], 'cls')) {
@@ -592,6 +613,12 @@ $start_closure = function($bot, $message) {
 
 };
 
+$menu_closure = function($bot, $callback_query) {
+
+    $bot->editMessageText($callback_query['message']['message_id'], $bot->menuMessage(), $bot->keyboard->get());
+
+};
+
 $help_closure = function($bot, $message) {
 
     $bot->keyboard(['text' => $bot->local[$bot->getLanguageRedisAsCache()]['Help_Msg'], 'callback_data' => 'menu']);
@@ -655,6 +682,7 @@ $skip_closure = function($bot, $callback_query) {
             // Delete junk in redis
             $bot->redis->delete($bot->getChatID() . ':bookmark');
             $bot->redis->delete($bot->getChatID() . ':message_id');
+            $bot->redis->delete($bot->getChatID() . ':index');
 
             break;
 
@@ -704,6 +732,11 @@ $back_closure = function($bot, $callback_query) {
             // Change the status as the user is inserting the name
             $bot->setStatus(GET_NAME);
 
+            break;
+
+        default:
+
+            // Paginate data
             break;
 
     }

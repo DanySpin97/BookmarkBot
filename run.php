@@ -20,6 +20,9 @@ $bot->loadLocalization();
 $bot->addMessageCommand("start", $start_closure);
 $bot->addMessageCommand("about", $about_closure);
 $bot->addMessageCommand("help", $help_closure);
+$bot->addCallbackCommand("menu", $menu_closure);
+$bot->addCallbackCommand("skip", $skip_closure);
+$bot->addCallbackCommand("back", $back_closure);
 
 // Start the bot
 $bot->getUpdatesLocal();
