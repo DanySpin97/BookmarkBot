@@ -1,0 +1,22 @@
+{
+    "Start_Msg": "Start Message",
+    "Menu_Msg": "MENU",
+    "Help_Msg": "Help",
+    "About_Msg": "About",
+    "Url_Msg": "<b>Url</b>: ",
+    "Name_Msg": "<b>Name</b>: ",
+    "Description_Msg": "<b>Description</b>: ",
+    "Hashtags_Msg": "<b>Hashtags</b>: ",
+    "SendName_Msg": "Send name",
+    "SendDescription_Msg": "Send description",
+    "UrlNotValid_Msg": "Url not valid",
+    "Skipped_Msg": "Skipped",
+    "Menu_Button": "Menu",
+    "Back_Button": "Back",
+    "Skip_Button": "Skip",
+    "About_Button": "About",
+    "Help_Button": "Help",
+    "Language_Button": "Language",
+    "Browse_Button": "Browse",
+    "Language": "English"
+}

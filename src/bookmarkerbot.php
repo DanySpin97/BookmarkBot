@@ -21,8 +21,14 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
     // Add the function for processing messages
     protected function processMessage($message) {
 
+        // Get language
+        $this->getLanguageRedisAsCache();
+
         // If there are entities in the message
         if (isset($message['entities'])) {
+
+            // Flag if there is an url in the message
+            $url_found = false;
 
             // Iterate over all entities
             foreach ($message['entities'] as $index => $entity) {
@@ -34,13 +40,10 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                     $url = $this->remove_http(substr($message['text'], $entity['offset'], $entity['length']));
 
                     // Save the url
-                    $redis->set($this->chat_id . ':bookmark', 'url', $url);
-
-                    // Edit the message before this
-                    $this->editMessageText($this->redis->get($this->chat_id . ':message_id'), $this->local[$this->language]['Url_Msg'] . $url);
+                    $this->redis->set($this->chat_id . ':bookmark', 'url', $url);
 
                     // Say the user to insert the name for this bookmark
-                    $new_message_id = $this->sendMessage($this->local[$this->language]['SendName_Msg'], $this->keyboard->getMenuKeyboard())['message_id'];
+                    $new_message_id = $this->sendMessage($this->local[$this->language]['Url_Msg'] . $url . NEW_LINE . $this->local[$this->language]['SendName_Msg'], $this->keyboard->getBackButton())['message_id'];
 
                     // Update the message id
                     $this->redis->set($this->chat_id . ':message_id', $new_message_id);
@@ -48,20 +51,29 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                     // Change status
                     $this->setStatus(GET_NAME);
 
+                    $url_found = true;
+
                     break;
 
                 }
 
             }
 
-            // There aren't url, say the user to resend it
-            $new_message_id = $this->sendMessage($this->local[$this->language]['UrlNotValid_Msg'], $this->keyboard->getMenuKeyboard());
+            if (!$url_found) {
 
-            // Update the message id
-            $this->redis->set($this->chat_id . ':message_id', $new_message_id);
+                // Add a button to go to the menu
+                $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
 
-            // Change status
-            $this->setStatus(MENU);
+                // There aren't url, say the user to resend it
+                $new_message_id = $this->sendMessage($this->local[$this->language]['UrlNotValid_Msg'], $this->keyboard->get());
+
+                // Update the message id
+                $this->redis->set($this->chat_id . ':message_id', $new_message_id);
+
+                // Change status
+                $this->setStatus(MENU);
+
+            }
 
         } else {
 
@@ -71,16 +83,16 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 case GET_NAME:
 
                     // Get message id of the last message bot sent
-                    $message_id = $bot->redis->get($bot->getChatID() . ':message_id');
+                    $message_id = $this->redis->get($this->chat_id . ':message_id');
 
                     // Edit last message sent
-                    $this->editMessageText($message_id, $this->local[$this->language]['Name_Msg'] . $this->local[$this->language]['Skipped_Msg']);
+                    $this->editMessageText($message_id, $this->local[$this->language]['Name_Msg'] . $message['text']);
 
                     // Save the name
-                    $redis->set($this->chat_id . ':bookmark', 'name', $message['text']);
+                    $this->redis->set($this->chat_id . ':bookmark', 'name', $message['text']);
 
                     // Send the user to next step
-                    $new_message_id = ($this->sendMessage($this->local['SendDesc_Msg'], $this->keyboard->getBackSkipKeyboard()))['message_id'];
+                    $new_message_id = ($this->sendMessage($this->local[$this->language]['SendDescription_Msg'], $this->keyboard->getBackSkipKeyboard()))['message_id'];
 
                     // Update the bot state
                     $this->setStatus(GET_DESC);
@@ -93,16 +105,16 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 case GET_DESC:
 
                     // Get message id of the last message bot sent
-                    $message_id = $bot->redis->get($bot->getChatID() . ':message_id');
+                    $message_id = $this->redis->get($this->chat_id . ':message_id');
 
                     // Edit last message sent
-                    $this->editMessageText($message_id, $this->local[$this->language]['Description_Msg'] . $this->local[$this->language]['Skipped_Msg']);
+                    $this->editMessageText($message_id, $this->local[$this->language]['Description_Msg'] . $message['text']);
 
                     // Save the description
-                    $redis->set($this->chat_id . ':bookmark', 'description', $message['text']);
+                    $this->redis->set($this->chat_id . ':bookmark', 'description', $message['text']);
 
                     // Send the user to next step
-                    $new_message_id = ($this->sendMessage($this->local['SendDesc_Msg'], $this->keyboard->getBackSkipKeyboard()))['message_id'];
+                    $new_message_id = ($this->sendMessage($this->local[$this->language]['SendDescription_Msg'], $this->keyboard->getBackSkipKeyboard()))['message_id'];
 
                     // Update stats
                     $this->setStatus(GET_HASHTAGS);
@@ -117,14 +129,25 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                     // Get message id of the last message bot sent
                     $message_id = $bot->redis->get($bot->getChatID() . ':message_id');
 
-                    // Edit last message sent
-                    $this->editMessageText($message_id, $this->local[$this->language]['Hashtag_Msg'] . $this->local[$this->language]['Skipped_Msg']);
-
                     // Get hashtags from message
                     $hashtags = DanySpin97\PhpBotFramework\Utility::getHashtags($message['text']);
 
                     // If there are hashtags in the message
                     if (!empty($hashtags)) {
+
+                        // A string with all hashtags one after another
+                        $hashtags_string = '';
+
+                        // Add them iterating over each
+                        foreach ($hashtags as $index => $hashtag) {
+
+                            // Concatenate each hashtag
+                            $hashtag_string .= $hashtag . ' ';
+
+                        }
+
+                        // Edit last message sent
+                        $this->editMessageText($message_id, $this->local[$this->language]['Hashtag_Msg'] . $hashtag_string);
 
                         // Get bookmark data from redis
                         $bookmark = $this->redis->get($this->chat_id . ':bookmark');
@@ -176,13 +199,14 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         if (isset($callback_query['data'])) {
 
             // If the user is going back to see a bookmark, from the edit menu
-            if (strpos($callback_query['data'], 'back')) {
+            if (strpos($callback_query['data'], 'back') !== false) {
 
                 // Get id from back (eg: back_id)
                 $bookmark_id = (explode('_', $callback_query['data'], 2))[1];
 
                 // Get bookmark and hashtags related
                 $this->getBookmark($bookmark_id);
+
 
                 // Add keyboard for editing bookmark
                 $this->addEditBookmarkKeyboard($this->bookmark, $this->hashtag);
@@ -205,16 +229,16 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 $this->setStatus(MENU);
 
             // Check if the user choosed a language (choose language start)
-            } elseif (strpos($callback_query['data'], 'cls')) {
+            } elseif (strpos($callback_query['data'], 'cls') !== false) {
 
                 // If we could add the user
                 if ($this->addUser($this->chat_id)) {
 
                     // Get the last two characters (the language choosed)
-                    $this->setLanguageRedisAsCache(substr($callback_query['data'], -1, 2));
+                    $this->setLanguageRedisAsCache(substr($callback_query['data'], -2, 2));
 
                     // Get the user to the menu
-                    $this->editMessageText($callback_query['message']['message_id'], $this->local["Menu_Msg"], $this->getMenuKeyboard());
+                    $this->editMessageText($callback_query['message']['message_id'], $this->menuMessage(), $this->keyboard->get());
 
                 }
 
@@ -577,7 +601,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 $start_closure = function($bot, $message) {
 
     // Is the user registred in the database?
-    $sth = $sth->pdo->prepare('SELECT COUNT(chat_id) FROM "User" WHERE chat_id = :chat_id');
+    $sth = $bot->pdo->prepare('SELECT COUNT(chat_id) FROM "User" WHERE chat_id = :chat_id');
     $sth->bindParam(':chat_id', $message['from']['id']);
     try {
 
@@ -607,7 +631,16 @@ $start_closure = function($bot, $message) {
 
     } else {
 
-        $bot->sendMessage($bot->local['en']['Start_Msg'], $bot->keyboard->getChooseLanguageKeyboard());
+        // Iterate over all languages
+        foreach ($bot->local as $language_index => $localization) {
+
+            // Add a button for each
+            $bot->keyboard->addLevelButtons(['text' => $localization['Language'], 'callback_data' => 'cls_' . $language_index]);
+
+        }
+
+        // Send the start message to the user
+        $bot->sendMessage($bot->local['en']['Start_Msg'], $bot->keyboard->get());
 
     }
 
@@ -619,19 +652,35 @@ $menu_closure = function($bot, $callback_query) {
 
 };
 
-$help_closure = function($bot, $message) {
+$help_msg_closure = function($bot, $message) {
 
-    $bot->keyboard(['text' => $bot->local[$bot->getLanguageRedisAsCache()]['Help_Msg'], 'callback_data' => 'menu']);
+    $bot->keyboard->AddLevelButtons(['text' => $bot->local[$bot->getLanguageRedisAsCache()]['Menu_Button'], 'callback_data' => 'menu']);
+
+    $bot->sendMessage($bot->local[$bot->language]['Help_Msg'], $bot->keyboard->get());
+
+};
+
+$about_msg_closure = function($bot, $message) {
+
+    $bot->keyboard->addLevelButtons(['text' => $bot->local[$bot->getLanguageRedisAsCache()]['Menu_Button'], 'callback_data' => 'menu']);
 
     $bot->sendMessage($bot->local[$bot->language]['About_Msg'], $bot->keyboard->get());
 
 };
 
-$about_closure = function($bot, $message) {
+$help_cbq_closure = function($bot, $callback_query) {
 
-    $bot->keyboard(['text' => $bot->local[$bot->getLanguageRedisAsCache()]['Help_Msg'], 'callback_data' => 'menu']);
+    $bot->keyboard->addButton($bot->local[$bot->getLanguageRedisAsCache()]['Menu_Button'], 'callback_data', 'menu');
 
-    $bot->sendMessage($bot->local[$bot->language]['About_Msg'], $bot->keyboard->get());
+    $bot->editMessageText($callback_query['message']['message_id'], $bot->local[$bot->language]['Help_Msg'], $bot->keyboard->get());
+
+};
+
+$about_cbq_closure = function($bot, $callback_query) {
+
+    $bot->keyboard->addButton($bot->local[$bot->getLanguageRedisAsCache()]['Menu_Button'], 'callback_data', 'menu');
+
+    $bot->editMessageText($callback_query['message']['message_id'], $bot->local[$bot->language]['About_Msg'], $bot->keyboard->get());
 
 };
 
@@ -717,7 +766,7 @@ $back_closure = function($bot, $callback_query) {
         case GET_DESC:
 
             // Say the user to insert the name
-            $bot->editMessageText($message_id, $bot->local[$bot->language]['Name_Msg'], $bot->keyboard->getBackButton());
+            $bot->editMessageText($message_id, $bot->local[$bot->language]['SendName_Msg'], $bot->keyboard->getBackButton());
 
             // Change the status as the user is inserting the name
             $bot->setStatus(GET_NAME);

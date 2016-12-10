@@ -12,10 +12,10 @@ CREATE TABLE "User" (
 
 CREATE TABLE Tag (
 
-    id int NOT NULL AUTO_INCREMENT,
+    id SERIAL,
 
     /* Hashtag name without hash */
-    name UNIQUE VARCHAR(32),
+    name VARCHAR(32) UNIQUE,
 
     PRIMARY KEY (id)
 
@@ -23,7 +23,7 @@ CREATE TABLE Tag (
 
 CREATE TABLE Bookmark (
 
-  id int NOT NULL AUTO_INCREMENT,
+  id SERIAL,
 
   /* Name of bookmark */
   name text,
@@ -43,7 +43,7 @@ CREATE TABLE Bookmark (
   PRIMARY KEY (id),
 
   /* References the user_id to the user table */
-  FOREIGN KEY (user_id) REFERENCES "User" (user_id)
+  FOREIGN KEY (user_id) REFERENCES "User" (chat_id)
 
 );
 
