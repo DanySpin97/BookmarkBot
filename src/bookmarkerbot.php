@@ -24,166 +24,151 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         // Get language
         $this->getLanguageRedisAsCache();
 
-        // If there are entities in the message
-        if (isset($message['entities'])) {
+        // We did not receive an url so we are expecting another message for bookmark data
+        switch($this->getStatus()) {
 
-            // Flag if there is an url in the message
-            $url_found = false;
+            case GET_NAME:
 
-            // Iterate over all entities
-            foreach ($message['entities'] as $index => $entity) {
+                // Get message id of the last message bot sent
+                $message_id = $this->redis->get($this->chat_id . ':message_id');
 
-                // Find an url
-                if ($entity['type'] === 'url') {
+                // Edit last message sent
+                $this->editMessageText($message_id, $this->local[$this->language]['Name_Msg'] . $message['text']);
 
-                    // Get the url from the message
-                    $url = $this->remove_http(substr($message['text'], $entity['offset'], $entity['length']));
+                // Save the name
+                $this->redis->hSet($this->chat_id . ':bookmark', 'name', $message['text']);
 
-                    // Save the url
-                    $this->redis->set($this->chat_id . ':bookmark', 'url', $url);
+                // Send the user to next step
+                $new_message_id = ($this->sendMessage($this->local[$this->language]['SendDescription_Msg'], $this->keyboard->getBackSkipKeyboard()))['message_id'];
 
-                    // Say the user to insert the name for this bookmark
-                    $new_message_id = $this->sendMessage($this->local[$this->language]['Url_Msg'] . $url . NEW_LINE . $this->local[$this->language]['SendName_Msg'], $this->keyboard->getBackButton())['message_id'];
-
-                    // Update the message id
-                    $this->redis->set($this->chat_id . ':message_id', $new_message_id);
-
-                    // Change status
-                    $this->setStatus(GET_NAME);
-
-                    $url_found = true;
-
-                    break;
-
-                }
-
-            }
-
-            if (!$url_found) {
-
-                // Add a button to go to the menu
-                $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
-
-                // There aren't url, say the user to resend it
-                $new_message_id = $this->sendMessage($this->local[$this->language]['UrlNotValid_Msg'], $this->keyboard->get());
+                // Update the bot state
+                $this->setStatus(GET_DESC);
 
                 // Update the message id
                 $this->redis->set($this->chat_id . ':message_id', $new_message_id);
 
-                // Change status
-                $this->setStatus(MENU);
+                break;
 
-            }
+            case GET_DESC:
 
-        } else {
+                // Get message id of the last message bot sent
+                $message_id = $this->redis->get($this->chat_id . ':message_id');
 
-            // What are we expecting to receive
-            switch($this->getStatus()) {
+                // Edit last message sent
+                $this->editMessageText($message_id, $this->local[$this->language]['Description_Msg'] . $message['text']);
 
-                case GET_NAME:
+                // Save the description
+                $this->redis->hSet($this->chat_id . ':bookmark', 'description', $message['text']);
 
-                    // Get message id of the last message bot sent
-                    $message_id = $this->redis->get($this->chat_id . ':message_id');
+                // Send the user to next step
+                $new_message_id = ($this->sendMessage($this->local[$this->language]['SendHashtags_Msg'], $this->keyboard->getBackSkipKeyboard()))['message_id'];
 
-                    // Edit last message sent
-                    $this->editMessageText($message_id, $this->local[$this->language]['Name_Msg'] . $message['text']);
+                // Update stats
+                $this->setStatus(GET_HASHTAGS);
 
-                    // Save the name
-                    $this->redis->set($this->chat_id . ':bookmark', 'name', $message['text']);
+                // Update the message id
+                $this->redis->set($this->chat_id . ':message_id', $new_message_id);
 
-                    // Send the user to next step
-                    $new_message_id = ($this->sendMessage($this->local[$this->language]['SendDescription_Msg'], $this->keyboard->getBackSkipKeyboard()))['message_id'];
+                break;
 
-                    // Update the bot state
-                    $this->setStatus(GET_DESC);
+            case GET_HASHTAGS:
 
-                    // Update the message id
-                    $this->redis->set($this->chat_id . ':message_id', $new_message_id);
+                // Get message id of the last message bot sent
+                $message_id = $this->redis->get($this->chat_id . ':message_id');
 
-                    break;
+                // Get hashtags from message
+                $hashtags = DanySpin97\PhpBotFramework\Utility::getHashtags($message['text']);
 
-                case GET_DESC:
+                // If there are hashtags in the message
+                if (!empty($hashtags)) {
 
-                    // Get message id of the last message bot sent
-                    $message_id = $this->redis->get($this->chat_id . ':message_id');
+                    // A string with all hashtags one after another
+                    $hashtags_string = '';
 
-                    // Edit last message sent
-                    $this->editMessageText($message_id, $this->local[$this->language]['Description_Msg'] . $message['text']);
+                    // Add them iterating over each
+                    foreach ($hashtags as $index => $hashtag) {
 
-                    // Save the description
-                    $this->redis->set($this->chat_id . ':bookmark', 'description', $message['text']);
-
-                    // Send the user to next step
-                    $new_message_id = ($this->sendMessage($this->local[$this->language]['SendDescription_Msg'], $this->keyboard->getBackSkipKeyboard()))['message_id'];
-
-                    // Update stats
-                    $this->setStatus(GET_HASHTAGS);
-
-                    // Update the message id
-                    $this->redis->set($this->chat_id . ':message_id', $new_message_id);
-
-                    break;
-
-                case GET_HASHTAGS:
-
-                    // Get message id of the last message bot sent
-                    $message_id = $bot->redis->get($bot->getChatID() . ':message_id');
-
-                    // Get hashtags from message
-                    $hashtags = DanySpin97\PhpBotFramework\Utility::getHashtags($message['text']);
-
-                    // If there are hashtags in the message
-                    if (!empty($hashtags)) {
-
-                        // A string with all hashtags one after another
-                        $hashtags_string = '';
-
-                        // Add them iterating over each
-                        foreach ($hashtags as $index => $hashtag) {
-
-                            // Concatenate each hashtag
-                            $hashtag_string .= $hashtag . ' ';
-
-                        }
-
-                        // Edit last message sent
-                        $this->editMessageText($message_id, $this->local[$this->language]['Hashtag_Msg'] . $hashtag_string);
-
-                        // Get bookmark data from redis
-                        $bookmark = $this->redis->get($this->chat_id . ':bookmark');
-
-                        // Save it on the db
-                        $this->saveBookmark($bookmark, $hashtags);
-
-                        // Update stats
-                        $this->setStatus(MENU);
-
-                        // Add keyboard to edit the bookmark
-                        $this->addEditBookmarkKeyboard($bookmark, $hashtags);
-
-                        // Add a menu button
-                        $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
-
-                        // Send the bookmark just created
-                        $this->sendMessage($this->formatBookmark($bookmark, $hashtags), $this->keyboard->get());
-
-                        // Delete junk in redis
-                        $this->redis->delete($this->chat_id . ':bookmark');
-                        $this->redis->delete($this->chat_id . ':hashtags');
-                        $this->redis->delete($this->chat_id . ':message_id');
-                        $this->redis->delete($this->chat_id . ':index');
-
-
-                    } else {
-
-                        // Say the user to resend hashtags
-                        $this->sendMessage($this->local[$this->language]['HashtagsNotValid_Msg'], $this->keyboard->getBackButton());
+                        // Concatenate each hashtag
+                        $hashtags_string .= $hashtag . ' ';
 
                     }
 
-                    break;
+                    // Edit last message sent
+                    $this->editMessageText($message_id, $this->local[$this->language]['Hashtags_Msg'] . $hashtags_string);
 
-            }
+                    // Get bookmark data from redis
+                    $bookmark = $this->redis->hGetAll($this->chat_id . ':bookmark');
+
+                    // Save it on the db
+                    $this->saveBookmark($bookmark, $hashtags);
+
+                    // Update stats
+                    $this->setStatus(MENU);
+
+                    // Add keyboard to edit the bookmark
+                    $this->addEditBookmarkKeyboard($bookmark, $hashtags);
+
+                    // Add a menu button
+                    $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
+
+                    // Send the bookmark just created
+                    $this->sendMessage($this->formatBookmark($bookmark, $hashtags), $this->keyboard->get());
+
+                    // Delete junk in redis
+                    $this->redis->delete($this->chat_id . ':bookmark');
+                    $this->redis->delete($this->chat_id . ':hashtags');
+                    $this->redis->delete($this->chat_id . ':message_id');
+                    $this->redis->delete($this->chat_id . ':index');
+
+
+                } else {
+
+                    // Say the user to resend hashtags
+                    $this->sendMessage($this->local[$this->language]['HashtagsNotValid_Msg'], $this->keyboard->getBackButton());
+
+                }
+
+                break;
+
+            default:
+
+                // If there are entities in the message
+                if (isset($message['entities'])) {
+
+                    // Flag if there is an url in the message
+                    $url_found = false;
+
+                    // Iterate over all entities
+                    foreach ($message['entities'] as $index => $entity) {
+
+                        // Find an url
+                        if ($entity['type'] === 'url') {
+
+                            // Get the url from the message
+                            $url = $this->remove_http(substr($message['text'], $entity['offset'], $entity['length']));
+
+                            // Save the url
+                            $this->redis->hSet($this->chat_id . ':bookmark', 'url', $url);
+
+                            // Say the user to insert the name for this bookmark
+                            $new_message_id = $this->sendMessage($this->local[$this->language]['Url_Msg'] . $url . NEW_LINE . $this->local[$this->language]['SendName_Msg'], $this->keyboard->getBackButton())['message_id'];
+
+                            // Update the message id
+                            $this->redis->set($this->chat_id . ':message_id', $new_message_id);
+
+                            // Change status
+                            $this->setStatus(GET_NAME);
+
+                            // We got what we want, so end the script
+                            return;
+
+                        }
+
+                    }
+
+                }
+
+                break;
 
         }
 
@@ -228,6 +213,10 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 // Change status
                 $this->setStatus(MENU);
 
+            // Is it a button to edit a bookmark?
+            } elseif (strpos($callback_query['data'], 'edit') !== false) {
+
+                $data = explode($callback_query
             // Check if the user choosed a language (choose language start)
             } elseif (strpos($callback_query['data'], 'cls') !== false) {
 
@@ -346,25 +335,52 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
     public function formatBookmark($bookmark, $hashtags) : string {
 
         // Add the name of the bookmark with bold formattation
-        $message = '<b>' . $bookmark['name'] . '</b>';
+        $message = '<b>' . $bookmark['name'] . '</b>' . NEW_LINE;
 
         // Add description formatted in italics
-        ($bookmark['description'] !== 'NULL') ? ($message .= NEW_LINE .'<i>' . $bookmark['description'] . '</i>' . NEW_LINE) : null;
+        ($bookmark['description'] !== 'NULL') ? ($message .= '<i>' . $bookmark['description'] . '</i>' . NEW_LINE) : null;
 
         // Add the url
-        $message = NEW_LINE . $bookmark['url'];
+        $message .= NEW_LINE . NEW_LINE . $bookmark['url'] . NEW_LINE;
+
+        $message .= NEW_LINE . $this->formatHashtags($hashtags);
+
+        return $message;
+
+    }
+
+    // Format hashtags to send them in the message
+    public function formatHashtags($hashtags) : string {
+
+        // Count how many hashtags we concatenate in this line
+        $i = 0;
+
+        $message = '';
 
         // Add the hashtags
         foreach($hashtags as $index => $hashtag) {
 
             // Concats the hahstags
-            $message .= $hashtag;
+            $message .= $hashtag . ' ';
+
+            // We added one more
+            $i++;
+
+            // Are there 3 hashtags in this line?
+            if ($i === 3) {
+
+               // Then go tho the next line
+               $message .= NEW_LINE;
+
+            }
 
         }
 
         return $message;
 
     }
+
+    
 
     // Send a bookmark in the channel of the user
     public function sendBookmarkChannel($bookmark, $hashtags) {
@@ -436,16 +452,16 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
     }
 
     // Save a bookmark in the database
-    public function saveBookmark($bookmark) {
+    public function saveBookmark($bookmark, $hashtags) {
 
         // Create bookmark
         $sth = $this->pdo->prepare('INSERT INTO Bookmark (name, description, url, user_id) VALUES (:name, :description, :url, :user_id) RETURNING id');
-        $bookmark = $this->redis->get($this->getChatID() . 'bookmark');
+        $bookmark = $this->redis->hGetAll($this->getChatID() . ':bookmark');
 
         $sth->bindParam(':name', $bookmark['name']);
         $sth->bindParam(':description', $bookmark['description']);
         $sth->bindParam(':url', $bookmark['url']);
-        $sth->bindParam(':user_id', $this->getChatID());
+        $sth->bindParam(':user_id', $this->chat_id);
 
         try {
 
@@ -469,7 +485,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         $create_tag_sth = $this->pdo->prepare('INSERT INTO Tag (name) VALUES (:name) RETURNING id');
 
         // Tag a bookmark passing bookmard and tag ids
-        $tag_bookmark_sth = $this->pdo->prepare('INSERT INTO Bookmark_Tag (bookmark_id, tag_id) VALUES (:bookmar_id, :tag_id)');
+        $tag_bookmark_sth = $this->pdo->prepare('INSERT INTO Bookmark_Tag (bookmark_id, tag_id) VALUES (:bookmark_id, :tag_id)');
 
         // For each hashtag added to the bookmark
         foreach ($hashtags as $index => $hashtag) {
@@ -554,8 +570,8 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
     public function addEditBookmarkKeyboard($bookmark, $hashtags) {
 
         // Add button for editing bookmark's url and name
-        $this->keyboard->addButton($this->local[$this->language]['EditUrl_Button'], 'callback_data', 'edit_url');
-        $this->keyboard->addButton($this->local[$this->language]['EditName_Button'], 'callback_data', 'edit_name');
+        $this->keyboard->addButton($this->local[$this->language]['EditUrl_Button'], 'callback_data', 'edit_url_' . $bookmark['id']);
+        $this->keyboard->addButton($this->local[$this->language]['EditName_Button'], 'callback_data', 'edit_name_' . $bookmark['id']);
 
         // Change keyboard row
         $this->keyboard->changeRow();
@@ -564,12 +580,12 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         if ($bookmark['description'] !== 'NULL') {
 
             // Add a button for editing the description
-            $this->keyboard->addButton($this->local[$this->language]['EditDescription_Button'], 'callback_data', 'edit_desc');
+            $this->keyboard->addButton($this->local[$this->language]['EditDescription_Button'], 'callback_data', 'edit_desc_' . $bookmark['id']);
 
         } else {
 
             // Add a button to add the description
-            $this->keyboard->addButton($this->local[$this->language]['AddDescription_Button'], 'callback_data', 'add_desc');
+            $this->keyboard->addButton($this->local[$this->language]['AddDescription_Button'], 'callback_data', 'add_desc_' . $bookmark['id']);
 
         }
 
@@ -577,12 +593,12 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         if (!empty($hashtags)) {
 
             // Add a button to edit hashtags
-            $this->keyboard->addButton($this->local[$this->language]['EditHashtags_Button'], 'callback_data', 'edit_hashtags');
+            $this->keyboard->addButton($this->local[$this->language]['EditHashtags_Button'], 'callback_data', 'edit_hashtags_' . $bookmark['id']);
 
         } else {
 
             // Add a button to add hashtags
-            $this->keyboard->addButton($this->local[$this->language]['AddHashtags_Button'], 'callback_data', 'add_hashtags');
+            $this->keyboard->addButton($this->local[$this->language]['AddHashtags_Button'], 'callback_data', 'add_hashtags_' . $bookmark['id']);
 
         }
 
@@ -648,6 +664,8 @@ $start_closure = function($bot, $message) {
 
 $menu_closure = function($bot, $callback_query) {
 
+    $bot->getLanguageRedisAsCache();
+
     $bot->editMessageText($callback_query['message']['message_id'], $bot->menuMessage(), $bot->keyboard->get());
 
 };
@@ -689,16 +707,19 @@ $skip_closure = function($bot, $callback_query) {
     // Get language
     $bot->getLanguageRedisAsCache();
 
+    // Get id of the message which the user pressed on 
+    $message_id = $callback_query['message']['message_id'];
+
     // What is the user skipping?
     switch ($bot->getStatus()) {
 
         case GET_DESC:
 
             // Set description NULL for this bookmark
-            $bot->redis->set($bot->getChatID() . ':bookmark', 'description', 'NULL');
+            $bot->redis->hSet($bot->getChatID() . ':bookmark', 'description', 'NULL');
 
             // Say the user to send the hashtags
-            $bot->editMessageText($message_id, $bot->local[$bot->getLanguageRedisAsCache()]['Description_Msg'] . $bot->local[$bot->language]['Skipped_Msg'] . NEW_LINE . $bot->local[$bot->language]['Hashtag_Msg']);
+            $bot->editMessageText($message_id, $bot->local[$bot->getLanguageRedisAsCache()]['Description_Msg'] . $bot->local[$bot->language]['Skipped_Msg'] . NEW_LINE . $bot->local[$bot->language]['SendHashtags_Msg'], $bot->keyboard->getBackSkipKeyboard());
 
             // Change status
             $bot->setStatus(GET_HASHTAGS);
@@ -709,7 +730,7 @@ $skip_closure = function($bot, $callback_query) {
         case GET_HASHTAGS:
 
             // Get bookmark data from redis
-            $bookmark = $bot->redis->get($bot->getChatID() . ':bookmark');
+            $bookmark = $bot->redis->hGetAll($bot->getChatID() . ':bookmark');
 
             $hashtags = [];
 
@@ -726,7 +747,7 @@ $skip_closure = function($bot, $callback_query) {
             $bot->keyboard->addButton($bot->local[$bot->language]['Menu_Button'], 'callback_data', 'menu');
 
             // Send the bookmark just created
-            $bot->editMessageText($callback_data['message']['message_id'], $bot->formatBookmark($bookmark, $hashtags), $bot->keyboard->get());
+            $bot->editMessageText($callback_query['message']['message_id'], $bot->formatBookmark($bookmark, $hashtags), $bot->keyboard->get());
 
             // Delete junk in redis
             $bot->redis->delete($bot->getChatID() . ':bookmark');
@@ -776,10 +797,10 @@ $back_closure = function($bot, $callback_query) {
         case GET_HASHTAGS:
 
             // Say the user to insert the description
-            $bot->editMessageText($message_id, $bot->local[$bot->language]['Description_Msg'], $bot->keyboard->getBackSkipKeyboard());
+            $bot->editMessageText($message_id, $bot->local[$bot->language]['SendDescription_Msg'], $bot->keyboard->getBackSkipKeyboard());
 
             // Change the status as the user is inserting the name
-            $bot->setStatus(GET_NAME);
+            $bot->setStatus(GET_DESC);
 
             break;
 

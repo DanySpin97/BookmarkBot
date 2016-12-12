@@ -9,7 +9,9 @@
     "Hashtags_Msg": "<b>Hashtags</b>: ",
     "SendName_Msg": "Send name",
     "SendDescription_Msg": "Send description",
+    "SendHashtags_Msg": "Send hashtags",
     "UrlNotValid_Msg": "Url not valid",
+    "HashtagsNotValid_Msg": "Hashtags not valid",
     "Skipped_Msg": "Skipped",
     "Menu_Button": "Menu",
     "Back_Button": "Back",
@@ -18,5 +20,12 @@
     "Help_Button": "Help",
     "Language_Button": "Language",
     "Browse_Button": "Browse",
+    "EditUrl_Button": "Edit url",
+    "EditName_Button": "Edit name",
+    "AddDescription_Button": "Add description",
+    "EditDescription_Button": "Edit description",
+    "AddHashtags_Button": "Add hashtags",
+    "EditHashtags_Button": "Edit hashtags",
+    "Share_Button": "Share",
     "Language": "English"
 }
