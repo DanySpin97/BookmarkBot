@@ -11,6 +11,9 @@ define("EDIT_DESCRIPTION", 6);
 define("EDIT_HASHTAGS", 7);
 define("LANGUAGE", 8);
 
+// How many items will be displayed each browse page
+define("ITEMS_PER_PAGE", 3);
+
 // Define costant for /n in Telegram Messages
 define("NEW_LINE", '
 ');
@@ -430,6 +433,52 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 // Change status
                 $this->setStatus(MENU);
 
+            // If the user is browsing hgis bookmarks
+            } elseif (strpos($callback_query['data'], 'list') !== false) {
+
+                $data = explode('/', $callback_query['data']);
+
+                // Get all bookmarks
+                $sth = $this->pdo->prepare('SELECT id, name, description, url FROM Bookmark WHERE user_id = :chat_id');
+                $sth->bindParam(':chat_id', $this->chat_id);
+   
+                try {
+
+                    $sth->execute();
+
+                } catch (PDOException $e) {
+
+                    echo $e->getMessage();
+
+                }
+
+                // Paginate the bookmark received
+                $message = DanySpin97\PhpBotFramework\Utility::paginateItems($sth, $data[1], $this->keyboard, [$this, 'formatItem'], ITEMS_PER_PAGE);
+
+                // Add a button to go to the menu
+                $this->keyboard->addLevelButtons(['text' => $this->local[$this->language]['Menu_Button'], 'callback_data' => 'menu']);
+
+                // Send the message to the user
+                $this->editMessageText($callback_query['message']['message_id'], $message, $this->keyboard->get());
+
+                // Update the index on redis db
+                $this->redis->set($this->chat_id . ':index', $data[1]);
+
+            // Check if the user selected a bookmark
+            } elseif (strpos($callback_query['data'], 'id') !== false) {
+
+                // Get bookmark id from callback data
+                $bookmark_id = explode('_', $callback_query['data'])[1];
+
+                // Get the bookmark from the database
+                $this->getBookmark($bookmark_id);
+
+                // Get keyboard
+                $this->addEditBookmarkKeyboard($this->bookmark, $this->hashtags);
+
+                // Send the updated bookmark to the user
+                $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark($this->bookmark, $this->hashtags), $this->keyboard->get());
+
             // Is it a button to edit a bookmark?
             } elseif (strpos($callback_query['data'], 'edit') !== false) {
 
@@ -721,6 +770,18 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
     }
 
+    // Update the message in the channel
+    public function updateBookmarkMessage($bookmark, $hashtags) {
+
+        // Add keyboard on the message
+        $this->keyboard->addButton($this->local[$this->language]['Share_Button'], 'switch_inline_query', $bookmark['name']);
+        $this->keyboard->addButton($this->local[$this->language]['Edit_Button'], 'callback_data', 'id_' . $bookmark['id']);
+
+        // Reformat the bookmark and update it
+        $this->editMessageText($bookmark['message_id'], $this->formatBookmark($bookmark, $hashtags), $this->keyboard->get());
+
+    }
+
     // Format a bookmark
     static public function formatBookmark($bookmark, $hashtags) : string {
 
@@ -776,17 +837,18 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
     }
 
-    static public function formatItem($item, $keyboard) : string{
+    static public function formatItem($item, &$keyboard) : string{
 
         $message = BookmarkerBot::formatBookmark($item, []);
 
-        $keyboard->addButton($item['name'], 'callback_data', $item['id']);
+        $keyboard->addButton($item['name'], 'callback_data', 'id_' . $item['id']);
 
         return $message;
 
     }
 
-    public function getUserChannel() : bool {
+    // Get the channel id of the current user
+    public function getChannelID() : bool {
 
         $sth = $this->pdo->prepare('SELECT channel_id FROM "User" WHERE chat_id = :chat_id');
         $sth->bindParam(':chat_id', $this->chat_id);
@@ -909,6 +971,17 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         // Save hashtags
         $this->saveHashtags($bookmark_id, $hashtags);
 
+        // Check if the user has a channel registrated
+        $channel_id = $this->getChannelID();
+
+        // If it is valid
+        if ($channel_id != false) {
+
+            // Send the new bookmark to the channel
+            $this->sendBookmarkChannel($bookmark, $hashtags);
+
+        }
+
         if ($bookmark_id !== false) {
 
             return $bookmark_id;
@@ -996,7 +1069,8 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
     }
 
-    public function menuMessage() {
+    // Get the menu message to show to the user and add the keyboard
+    public function menuMessage() : string {
 
         // Add menu buttons
         $this->keyboard->addButton($this->local[$this->language]['Browse_Button'], 'callback_data', 'browse');
@@ -1066,10 +1140,23 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
         $this->keyboard->changeRow();
 
+        // Add a back button if the user was browsing the bookmarks
+        if ($this->redis->exists($this->chat_id . ':index')) {
+
+            $this->keyboard->addButton($this->local[$this->language]['Back_Button'], 'callback_data', 'list/' . $this->redis->get($this->chat_id . ':index'));
+
+            // Add a button to go to the menu
+            $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
+ 
+            $this->keyboard->changeRow();
+
+        }
+
     }
 
 }
 
+// Called on /start message
 $start_closure = function($bot, $message) {
 
     // Is the user registred in the database?
@@ -1100,6 +1187,8 @@ $start_closure = function($bot, $message) {
         $bot->redis->delete($bot->getChatID() . ':bookmark');
         $bot->redis->delete($bot->getChatID() . ':hashtags');
         $bot->redis->delete($bot->getChatID() . ':message_id');
+        $bot->redis->delete($bot->getChatID() . ':index');
+        $bot->redis->delete($bot->getChatID() . ':bookmark_id');
 
         $bot->setStatus(MENU);
 
@@ -1120,10 +1209,17 @@ $start_closure = function($bot, $message) {
 
 };
 
+// Each time a callback that has 'menu' as data
 $menu_closure = function($bot, $callback_query) {
 
+    // Delete redis junk
+    $bot->redis->delete($bot->getChatID() . ':index');
+    $bot->redis->delete($bot->getChatID() . ':bookmark_id');
+
+    // Get language
     $bot->getLanguageRedisAsCache();
 
+    // Get the user to the menu
     $bot->editMessageText($callback_query['message']['message_id'], $bot->menuMessage(), $bot->keyboard->get());
 
 };
@@ -1152,6 +1248,7 @@ $help_cbq_closure = function($bot, $callback_query) {
 
 };
 
+// Called when user press "About" button in menu
 $about_cbq_closure = function($bot, $callback_query) {
 
     $bot->keyboard->addButton($bot->local[$bot->getLanguageRedisAsCache()]['Menu_Button'], 'callback_data', 'menu');
@@ -1160,6 +1257,7 @@ $about_cbq_closure = function($bot, $callback_query) {
 
 };
 
+// Called when user want to change language in menu
 $language_closure = function($bot, $callback_query) {
 
     $bot->getLanguageRedisAsCache();
@@ -1170,11 +1268,17 @@ $language_closure = function($bot, $callback_query) {
 
 };
 
+// Will be called each time the user press "Browse" in the menu
 $browse_closure = function($bot, $callback_query) {
 
+    // Get language
     $bot->getLanguageRedisAsCache();
 
-    $sth = $bot->pdo->prepare('SELECT id, name, description, url FROM Bookmark');
+    $chat_id = $bot->getChatID();
+
+    // Get all bookmarks
+    $sth = $bot->pdo->prepare('SELECT id, name, description, url FROM Bookmark WHERE user_id = :chat_id');
+    $sth->bindParam(':chat_id', $chat_id);
    
     try {
 
@@ -1186,11 +1290,21 @@ $browse_closure = function($bot, $callback_query) {
 
     }
 
-    $message = DanySpin97\PhpBotFramework\Utility::paginateItems($sth, 1, [$bot, 'formatItem'], 3, $bot->keyboard);
+    // Paginate the bookmark received
+    $message = DanySpin97\PhpBotFramework\Utility::paginateItems($sth, 1, $bot->keyboard, [$bot, 'formatItem'], ITEMS_PER_PAGE);
+
+    // Add a button to go to the menu
+    $bot->keyboard->addLevelButtons(['text' => $bot->local[$bot->language]['Menu_Button'], 'callback_data' => 'menu']);
+
+    // Send the message to the user
     $bot->editMessageText($callback_query['message']['message_id'], $message, $bot->keyboard->get());
+
+    // Update the index on redis db
+    $bot->redis->set($bot->getChatID() . ':index', 1);
 
 };
 
+// Called when user press a "Skip" button (when adding a bookmark)
 $skip_closure = function($bot, $callback_query) {
 
     // Get language
@@ -1249,6 +1363,7 @@ $skip_closure = function($bot, $callback_query) {
 
 };
 
+// Called on "Back" button pressed
 $back_closure = function($bot, $callback_query) {
 
     // Get language
