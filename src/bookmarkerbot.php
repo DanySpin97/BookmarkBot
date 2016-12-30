@@ -10,6 +10,7 @@ define("EDIT_NAME", 5);
 define("EDIT_DESCRIPTION", 6);
 define("EDIT_HASHTAGS", 7);
 define("LANGUAGE", 8);
+define("ADD_CHANNEL", 9);
 
 // How many items will be displayed each browse page
 define("ITEMS_PER_PAGE", 3);
@@ -89,23 +90,23 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                     // Edit last message sent
                     $this->editMessageText($message_id, $this->local[$this->language]['Hashtags_Msg'] . $this->formatHashtags($hashtags));
 
-                    // Get bookmark data from redis
-                    $bookmark = $this->redis->hGetAll($this->chat_id . ':bookmark');
+                    // Set hashtags
+                    $this->hashtags = $hashtags;
 
                     // Save it on the db and get the id
-                    $bookmark['id'] = $this->saveBookmark($bookmark, $hashtags);
+                    $this->saveBookmark();
 
                     // Update stats
                     $this->setStatus(MENU);
 
                     // Add keyboard to edit the bookmark
-                    $this->addEditBookmarkKeyboard($bookmark, $hashtags);
+                    $this->addEditBookmarkKeyboard();
 
                     // Add a menu button
                     $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
 
                     // Send the bookmark just created
-                    $this->sendMessage($this->formatBookmark($bookmark, $hashtags), $this->keyboard->get());
+                    $this->sendMessage($this->formatBookmark(), $this->keyboard->get());
 
                     // Delete junk in redis
                     $this->redis->delete($this->chat_id . ':bookmark');
@@ -143,35 +144,38 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                             $sth = $this->pdo->prepare('UPDATE Bookmark SET url = :url WHERE id = :bookmark_id');
                             $sth->bindParam(':url', $message['text']);
                             $sth->bindParam(':bookmark_id', $bookmark_id);
- 
+
                             try {
-             
+
                                 $sth->execute();
- 
+
                             } catch (PDOException $e) {
- 
+
                                 echo $e->getMessage();
- 
+
                             }
- 
+
                             // Close connection
                             $sth = null;
- 
+
                             // Get bookmark from database
                             $this->getBookmark($bookmark_id);
- 
+
                             // Edit the last message showing the new url
                             $this->editMessageText($this->redis->get($this->chat_id . ':message_id'), $this->local[$this->language]['NewUrl_Msg'] . $message['text']);
- 
+
                             // Delete message id as we don't need it anymore
                             $this->redis->delete($this->chat_id . ':message_id');
                             $this->redis->delete($this->chat_id . ':bookmark_id');
- 
+
                             // Get keyboard
-                            $this->addEditBookmarkKeyboard($this->bookmark, $this->hashtags);
- 
+                            $this->addEditBookmarkKeyboard();
+
                             // Send the updated bookmark to the user
-                            $this->sendMessage($this->formatBookmark($this->bookmark, $this->hashtags), $this->keyboard->get());
+                            $this->sendMessage($this->formatBookmark(), $this->keyboard->get());
+
+                            // Edit the message in the channel
+                            $this->updateBookmarkMessage();
 
                             // We edited the message so we can exit the function
                             return;
@@ -206,35 +210,35 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 $sth = $this->pdo->prepare('UPDATE Bookmark SET name = :name WHERE id = :bookmark_id');
                 $sth->bindParam(':name', $message['text']);
                 $sth->bindParam(':bookmark_id', $bookmark_id);
- 
+
                 try {
-             
+
                     $sth->execute();
- 
+
                 } catch (PDOException $e) {
- 
+
                     echo $e->getMessage();
- 
+
                 }
- 
+
                 // Close connection
                 $sth = null;
 
                 // Get bookmark from database
                 $this->getBookmark($bookmark_id);
- 
+
                 // Edit the last message showing the new url
                 $this->editMessageText($this->redis->get($this->chat_id . ':message_id'), $this->local[$this->language]['NewName_Msg'] . $message['text']);
 
                 // Delete message id as we don't need it anymore
                 $this->redis->delete($this->chat_id . ':message_id');
                 $this->redis->delete($this->chat_id . ':bookmark_id');
- 
+
                 // Get keyboard
-                $this->addEditBookmarkKeyboard($this->bookmark, $this->hashtags);
+                $this->addEditBookmarkKeyboard();
 
                 // Send the updated bookmark to the user
-                $this->sendMessage($this->formatBookmark($this->bookmark, $this->hashtags), $this->keyboard->get());
+                $this->sendMessage($this->formatBookmark(), $this->keyboard->get());
 
                 // Update stats
                 $this->setStatus(MENU);
@@ -250,35 +254,35 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 $sth = $this->pdo->prepare('UPDATE Bookmark SET description = :description WHERE id = :bookmark_id');
                 $sth->bindParam(':description', $message['text']);
                 $sth->bindParam(':bookmark_id', $bookmark_id);
- 
+
                 try {
-             
+
                     $sth->execute();
- 
+
                 } catch (PDOException $e) {
- 
+
                     echo $e->getMessage();
- 
+
                 }
- 
+
                 // Close connection
                 $sth = null;
 
                 // Get bookmark from database
                 $this->getBookmark($bookmark_id);
- 
+
                 // Edit the last message showing the new url
                 $this->editMessageText($this->redis->get($this->chat_id . ':message_id'), $this->local[$this->language]['NewDescription_Msg'] . $message['text']);
 
                 // Delete message id as we don't need it anymore
                 $this->redis->delete($this->chat_id . ':message_id');
                 $this->redis->delete($this->chat_id . ':bookmark_id');
- 
+
                 // Get keyboard
-                $this->addEditBookmarkKeyboard($this->bookmark, $this->hashtags);
+                $this->addEditBookmarkKeyboard();
 
                 // Send the updated bookmark to the user
-                $this->sendMessage($this->formatBookmark($this->bookmark, $this->hashtags), $this->keyboard->get());
+                $this->sendMessage($this->formatBookmark(), $this->keyboard->get());
 
                 // Update stats
                 $this->setStatus(MENU);
@@ -329,13 +333,13 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                     $this->getBookmark($bookmark_id);
 
                     // Add keyboard to edit the bookmark
-                    $this->addEditBookmarkKeyboard($this->bookmark, $this->hashtags);
+                    $this->addEditBookmarkKeyboard();
 
                     // Add a menu button
                     $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
 
                     // Send the bookmark just created
-                    $this->sendMessage($this->formatBookmark($this->bookmark, $this->hashtags), $this->keyboard->get());
+                    $this->sendMessage($this->formatBookmark(), $this->keyboard->get());
 
                     // Delete junk in redis
                     $this->redis->delete($this->chat_id . ':bookmark_id');
@@ -349,6 +353,87 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                     // Set the new message_id
                     $this->redis->set($this->chat_id . ':message_id', $new_message_id);
 
+                }
+
+                break;
+
+            case ADD_CHANNEL:
+
+                // If the message has been forwared from a channel
+                if (isset($message['forward_from_chat']) && $message['forward_from_chat']['type'] === 'channel') {
+
+                    // Get channel id from forwarding
+                    $channel_id = substr($message['forward_from_chat']['id'], 3);
+
+                    // Get admin from channel
+                    $administrators = $this->getChatAdministrators($message['forward_from_chat']['id']);
+
+                    // Flag to check if the user is admin of the channel
+                    $is_user_admin = false;
+
+                    // Iterate over all admins
+                    foreach($administrators as $index => $chat_member) {
+
+                        // Is the admin the same as this user?
+                        if ($chat_member['user']['id'] === $this->chat_id) {
+
+                            $is_user_admin = true;
+
+                            break;
+
+                        }
+
+                    }
+
+                    // The user is a channel admin
+                    if ($is_user_admin) {
+
+                        // Update the channel id on database
+                        $sth = $this->pdo->prepare('UPDATE "User" SET channel_id = :channel_id WHERE chat_id = :chat_id');
+                        $sth->bindParam(':channel_id', $channel_id);
+                        $sth->bindParam(':chat_id', $this->chat_id);
+
+                        try {
+
+                            $sth->execute();
+
+                        } catch (PDOException $e) {
+
+                            echo $e->getMessage();
+
+                        }
+
+                        // Get the message id of the last message in chat with the user
+                        $message_id = $this->redis->get($this->chat_id . ':message_id');
+
+                        // Tell the user the new channel title
+                        $this->editMessageText($message_id, $this->local[$this->language]['ChannelTitle_Msg'] . $message['forward_from_chat']['title']);
+
+                        // Update the message with the info about the channel
+                        $this->sendMessage($this->local[$this->getLanguageRedisAsCache()]['ChannelAdded_Msg'] . NEW_LINE . $this->getChannelData($channel_id), $this->keyboard->get());
+
+                        // Delete junk
+                        $this->redis->delete($this->chat_id . ':message_id');
+
+                        $this->setStatus(MENU);
+
+                    } else {
+
+                        // Button to go to the menu
+                        $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
+
+                        // Say the user he is not admin
+                        $this->sendMessage($this->local[$this->language]['ChannelNotAdmin_Msg'], $this->keyboard->get());
+
+                    }
+
+                } else {
+
+                    // Button to go to the menu
+                    $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
+
+                    // Say the user the message hasn't been forwarded from a channel
+                    $this->sendMessage($this->local[$this->language]['NotChannel_Msg'], $this->keyboard->get());
 
                 }
 
@@ -414,7 +499,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 $this->getBookmark($bookmark_id);
 
                 // Add keyboard for editing bookmark
-                $this->addEditBookmarkKeyboard($this->bookmark, $this->hashtags);
+                $this->addEditBookmarkKeyboard();
 
                 // If the user was browsing the bookmarks
                 if ($this->redis->exists($this->chat_id . ':index')) {
@@ -428,7 +513,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
 
                 // Show the bookmark to the user
-                $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark($this->bookmark, $this->hashtags), $this->keyboard->get());
+                $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark(), $this->keyboard->get());
 
                 // Change status
                 $this->setStatus(MENU);
@@ -441,7 +526,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 // Get all bookmarks
                 $sth = $this->pdo->prepare('SELECT id, name, description, url FROM Bookmark WHERE user_id = :chat_id');
                 $sth->bindParam(':chat_id', $this->chat_id);
-   
+
                 try {
 
                     $sth->execute();
@@ -474,10 +559,10 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 $this->getBookmark($bookmark_id);
 
                 // Get keyboard
-                $this->addEditBookmarkKeyboard($this->bookmark, $this->hashtags);
+                $this->addEditBookmarkKeyboard();
 
                 // Send the updated bookmark to the user
-                $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark($this->bookmark, $this->hashtags), $this->keyboard->get());
+                $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark(), $this->keyboard->get());
 
             // Is it a button to edit a bookmark?
             } elseif (strpos($callback_query['data'], 'edit') !== false) {
@@ -629,7 +714,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                         // Delete all hashtags of this bookmark
                         $sth = $this->pdo->prepare('DELETE FROM Bookmark_Tag WHERE bookmark_id = :bookmark_id');
                         $sth->bindParam(':bookmark_id', $data[2]);
-            
+
                         try {
 
                             $sth->execute();
@@ -649,12 +734,12 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
                 // Get bookmark from database
                 $this->getBookmark($data[2]);
- 
+
                 // Get keyboard
-                $this->addEditBookmarkKeyboard($this->bookmark, $this->hashtags);
- 
+                $this->addEditBookmarkKeyboard();
+
                 // Send the updated bookmark to the user
-                $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark($this->bookmark, $this->hashtags), $this->keyboard->get());
+                $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark(), $this->keyboard->get());
 
             // Check if the user choosed a language (choose language start)
             } elseif (strpos($callback_query['data'], 'cls') !== false) {
@@ -676,7 +761,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
     }
 
-    // Remove http and https from sites
+    // Remove url prefix
     public function remove_http($url) {
 
         $disallowed = array('http://', 'https://');
@@ -771,19 +856,38 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
     }
 
     // Update the message in the channel
-    public function updateBookmarkMessage($bookmark, $hashtags) {
+    public function updateBookmarkMessage() {
+
+        // Get channel id
+        $channel_id = $this->getChannelID();
+
+        // Check if it is valid
+        if ($channel_id == false) {
+
+            return;
+
+        }
+
+        // Store the previous chat id to restore it later
+        $previous_chat_id = $this->chat_id;
+
+        // Set chat id to the channel id
+        $this->chat_id = $channel_id;
 
         // Add keyboard on the message
         $this->keyboard->addButton($this->local[$this->language]['Share_Button'], 'switch_inline_query', $bookmark['name']);
         $this->keyboard->addButton($this->local[$this->language]['Edit_Button'], 'callback_data', 'id_' . $bookmark['id']);
 
         // Reformat the bookmark and update it
-        $this->editMessageText($bookmark['message_id'], $this->formatBookmark($bookmark, $hashtags), $this->keyboard->get());
+        $this->editMessageText($this->bookmark['message_id'], $this->formatBookmark(), $this->keyboard->get());
+
+        // Restore chat id to the user's one
+        $this->chat_id = $previous_chat_id;
 
     }
 
     // Format a bookmark
-    static public function formatBookmark($bookmark, $hashtags) : string {
+    static public function formatBookmarkStatic($bookmark, $hashtags, $preview = true) : string {
 
         // Add the name of the bookmark with bold formattation
         $message = '<b>' . $bookmark['name'] . '</b>' . NEW_LINE;
@@ -791,12 +895,23 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         // Add description formatted in italics
         ($bookmark['description'] !== 'NULL') ? ($message .= '<i>' . $bookmark['description'] . '</i>' . NEW_LINE) : null;
 
-        // Add the url
-        $message .= NEW_LINE . $bookmark['url'] . NEW_LINE;
-
-        $message .= BookmarkerBot::formatHashtags($hashtags);
+        // Add the url and the hashtags based if it is not in preview
+        $message .= $preview ? ('<a href="' . $bookmark['url'] . '">Link</a>') :
+                (NEW_LINE . $bookmark['url'] . NEW_LINE .
+                BookmarkerBot::formatHashtags($hashtags));
 
         return $message;
+
+    }
+
+    // Wrapper between the instantiated object and the static function
+    public function formatBookmark($preview = false) : string {
+
+        $bookmark = $this->bookmark;
+
+        $hashtags = $this->hashtags;
+
+        return $this->formatBookmarkStatic($bookmark, $hashtags, $preview);
 
     }
 
@@ -839,7 +954,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
     static public function formatItem($item, &$keyboard) : string{
 
-        $message = BookmarkerBot::formatBookmark($item, []);
+        $message = BookmarkerBot::formatBookmarkStatic($item, []);
 
         $keyboard->addButton($item['name'], 'callback_data', 'id_' . $item['id']);
 
@@ -848,7 +963,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
     }
 
     // Get the channel id of the current user
-    public function getChannelID() : bool {
+    public function getChannelID() {
 
         $sth = $this->pdo->prepare('SELECT channel_id FROM "User" WHERE chat_id = :chat_id');
         $sth->bindParam(':chat_id', $this->chat_id);
@@ -867,25 +982,56 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
         $sth = null;
 
-        return intval($channel_id);
+        // If it is valid
+        if ($channel_id != 0) {
+
+            // append channel and group prefix and return the value
+            return '-100' . $channel_id;
+
+        }
+
+        return 0;
 
     }
 
     // Send a bookmark in the channel of the user
-    public function sendBookmarkChannel($bookmark, $hashtags) {
+    public function sendBookmarkChannel() {
 
         // If the bookmark has no id (for unknown reasons)
-        if (!isset($bookmark['id'])) {
+        if (!isset($this->bookmark['id'])) {
 
             // Exit the function
             return;
 
         }
 
-        // Get the channel_id for the current user
-        $sth = $this->pdo->prepare('SELECT channel_id FROM "User" WHERE chat_id = :chat_id');
+        // Get channel id
+        $channel_id = $this->getChannelID();
 
-        $sth->bindParam(':chat_id', $this->chat_id);
+        // Check if the user has a channel and the query didn't get errors
+        if ($channel_id == false) {
+
+            return;
+
+        }
+
+        // Save user id to restore it later
+        $previous_chat_id = $this->chat_id;
+
+        // Set the chat_id to channel_id
+        $this->chat_id = $channel_id;
+
+        // Add a button that will let user edit the bookmark
+        $this->keyboard->addLevelButtons(['text' => $this->local[$this->language]['Edit_Button'], 'callback_data' => 'editfromchannel']);
+
+        // Send the message to the channel
+        $new_message_id = ($this->sendMessage($this->formatBookmark(), $this->keyboard->get()))['message_id'];
+
+        // Add the message id to the bookmark
+        $sth = $this->pdo->prepare('UPDATE Bookmark SET message_id = :message_id WHERE id = :bookmark_id');
+
+        $sth->bindParam(':message_id', $new_message_id);
+        $sth->bindParam(':bookmark_id', $this->bookmark['id']);
 
         try {
 
@@ -897,59 +1043,23 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
         }
 
-        $channel_id = $sth->fetchColumn();
-
         $sth = null;
 
-        // Check if the user has a channel and the query didn't get errors
-        if ($channel_id != false) {
-
-            // Save user id to restore it later
-            $previous_chat_id = $this->chat_id;
-
-            // Set the chat_id to channel_id
-            $this->chat_id = $channel_id;
-
-            $this->keyboard->clear();
-
-            // Add a button that will let user edit the bookmark
-            $this->keyboard->addLevelButtons(['text' => $this->local[$this->language]['Edit_Button'], 'callback_data' => 'editfromchannel']);
-
-            // Send the message to the channel
-            $new_message_id = ($this->sendMessage($this->formatBookmark($bookmark, $hashtags), $this->keyboard->get()))['message_id'];
-
-            // Add the message id to the bookmark
-            $sth = $this->pdo->prepare('UPDATE Bookmark SET message_id = :message_id WHERE id = :bookmark_id');
-
-            $sth->bindParam(':message_id', $new_message_id);
-            $sth->bindParam(':bookmar_id', $bookmark['id']);
-
-            try {
-
-                $sth->execute();
-
-            } catch (PDOException $e) {
-
-                echo $e->getMessage();
-
-            }
-
-            $sth = null;
-
-        }
+        // Restore chat_id
+        $this->chat_id = $previous_chat_id;
 
     }
 
     // Save a bookmark in the database
-    public function saveBookmark($bookmark, $hashtags) : int {
+    public function saveBookmark() : int {
 
         // Create bookmark
         $sth = $this->pdo->prepare('INSERT INTO Bookmark (name, description, url, user_id) VALUES (:name, :description, :url, :user_id) RETURNING id');
-        $bookmark = $this->redis->hGetAll($this->getChatID() . ':bookmark');
+        $this->bookmark = $this->redis->hGetAll($this->getChatID() . ':bookmark');
 
-        $sth->bindParam(':name', $bookmark['name']);
-        $sth->bindParam(':description', $bookmark['description']);
-        $sth->bindParam(':url', $bookmark['url']);
+        $sth->bindParam(':name', $this->bookmark['name']);
+        $sth->bindParam(':description', $this->bookmark['description']);
+        $sth->bindParam(':url', $this->bookmark['url']);
         $sth->bindParam(':user_id', $this->chat_id);
 
         try {
@@ -963,28 +1073,20 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         }
 
         // Get id of the bookmark created
-        $bookmark_id = $sth->fetch()['id'];
+        $this->bookmark['id'] = $sth->fetch()['id'];
 
         // Close connection
         $sth = null;
 
         // Save hashtags
-        $this->saveHashtags($bookmark_id, $hashtags);
+        $this->saveHashtags();
 
-        // Check if the user has a channel registrated
-        $channel_id = $this->getChannelID();
+        // Send the new bookmark to the channel
+        $this->sendBookmarkChannel();
 
-        // If it is valid
-        if ($channel_id != false) {
+        if ($this->bookmark['id'] !== false) {
 
-            // Send the new bookmark to the channel
-            $this->sendBookmarkChannel($bookmark, $hashtags);
-
-        }
-
-        if ($bookmark_id !== false) {
-
-            return $bookmark_id;
+            return $this->bookmark['id'];
 
         }
 
@@ -993,7 +1095,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
     }
 
     // Save hashtags on database
-    public function saveHashtags($bookmark_id, $hashtags) {
+    public function saveHashtags() {
 
         // Is there a tag with a specific name?
         $sth = $this->pdo->prepare('SELECT id FROM Tag WHERE name = :name LIMIT 1');
@@ -1005,7 +1107,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         $sth3 = $this->pdo->prepare('INSERT INTO Bookmark_Tag (bookmark_id, tag_id) VALUES (:bookmark_id, :tag_id)');
 
         // For each hashtag added to the bookmark
-        foreach ($hashtags as $index => $hashtag) {
+        foreach ($this->hashtags as $index => $hashtag) {
 
             // Check if there is any with the same name
             $sth->bindParam(':name', $hashtag);
@@ -1045,7 +1147,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
             }
 
             // Tag the bookmark
-            $sth3->bindParam(':bookmark_id', $bookmark_id);
+            $sth3->bindParam(':bookmark_id', $this->bookmark['id']);
 
             $sth3->bindParam(':tag_id', $tag_id);
 
@@ -1076,7 +1178,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         $this->keyboard->addButton($this->local[$this->language]['Browse_Button'], 'callback_data', 'browse');
         $this->keyboard->changeRow();
 
-        if ($this->getUserChannel() != false) {
+        if ($this->getChannelID() != false) {
 
             $this->keyboard->addButton($this->local[$this->language]['EditChannel_Button'], 'callback_data', 'channel');
 
@@ -1097,38 +1199,38 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
     }
 
     // Add the keyboard for editing bookmarks as a side effect
-    public function addEditBookmarkKeyboard($bookmark, $hashtags) {
+    public function addEditBookmarkKeyboard() {
 
         // Add button for editing bookmark's url and name
-        $this->keyboard->addButton($this->local[$this->language]['EditUrl_Button'], 'callback_data', 'edit_url_' . $bookmark['id']);
-        $this->keyboard->addButton($this->local[$this->language]['EditName_Button'], 'callback_data', 'edit_name_' . $bookmark['id']);
+        $this->keyboard->addButton($this->local[$this->language]['EditUrl_Button'], 'callback_data', 'edit_url_' . $this->bookmark['id']);
+        $this->keyboard->addButton($this->local[$this->language]['EditName_Button'], 'callback_data', 'edit_name_' . $this->bookmark['id']);
 
         // Change keyboard row
         $this->keyboard->changeRow();
 
         // Does the bookmark has a description?
-        if ($bookmark['description'] !== 'NULL') {
+        if ($this->bookmark['description'] !== 'NULL') {
 
             // Add a button for editing the description
-            $this->keyboard->addButton($this->local[$this->language]['EditDescription_Button'], 'callback_data', 'edit_desc_' . $bookmark['id']);
+            $this->keyboard->addButton($this->local[$this->language]['EditDescription_Button'], 'callback_data', 'edit_desc_' . $this->bookmark['id']);
 
         } else {
 
             // Add a button to add the description
-            $this->keyboard->addButton($this->local[$this->language]['AddDescription_Button'], 'callback_data', 'add_desc_' . $bookmark['id']);
+            $this->keyboard->addButton($this->local[$this->language]['AddDescription_Button'], 'callback_data', 'add_desc_' . $this->bookmark['id']);
 
         }
 
         // Does the bookmark has hashtags?
-        if (!empty($hashtags)) {
+        if (!empty($this->hashtags)) {
 
             // Add a button to edit hashtags
-            $this->keyboard->addButton($this->local[$this->language]['EditHashtags_Button'], 'callback_data', 'edit_hashtags_' . $bookmark['id']);
+            $this->keyboard->addButton($this->local[$this->language]['EditHashtags_Button'], 'callback_data', 'edit_hashtags_' . $this->bookmark['id']);
 
         } else {
 
             // Add a button to add hashtags
-            $this->keyboard->addButton($this->local[$this->language]['AddHashtags_Button'], 'callback_data', 'add_hashtags_' . $bookmark['id']);
+            $this->keyboard->addButton($this->local[$this->language]['AddHashtags_Button'], 'callback_data', 'add_hashtags_' . $this->bookmark['id']);
 
         }
 
@@ -1136,7 +1238,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         $this->keyboard->changeRow();
 
         // Add a button to share the bookmark
-        $this->keyboard->addButton($this->local[$this->language]['Share_Button'], 'switch_inline_query', $bookmark['name']);
+        $this->keyboard->addButton($this->local[$this->language]['Share_Button'], 'switch_inline_query', $this->bookmark['name']);
 
         $this->keyboard->changeRow();
 
@@ -1147,10 +1249,67 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
             // Add a button to go to the menu
             $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
- 
+
             $this->keyboard->changeRow();
 
         }
+
+    }
+
+    // Get channel data to send them to the user
+    public function getChannelData($channel_id) : string {
+
+        $message = '';
+
+        // Get channel title by calling getChat api method
+        $channel = $this->getChat($channel_id);
+
+        $message .= $channel['title'] . NEW_LINE;
+
+        $message .= $this->local[$this->language]['BookmarkCount_Msg'] . $this->getBookmarkCount() . NEW_LINE;
+
+        $message .= NEW_LINE . $this->local[$this->language]['ChannelExplanation_Msg'];
+
+        // Add buttons for editing and deleting channel
+        $this->keyboard->addButton($this->local[$this->language]['ChangeChannel_Button'], 'callback_data', 'change_channel');
+        $this->keyboard->addButton($this->local[$this->language]['DeleteChannel_Button'], 'callback_data', 'delete_channel');
+
+        $this->keyboard->changeRow();
+
+        // Add button to go to the menu
+        $this->keyboard->addButton($this->local[$this->language]['Menu_Button'], 'callback_data', 'menu');
+
+        return $message;
+
+    }
+
+    // Get how many bookmarks does a user have
+    public function getBookmarkCount() : int {
+
+        // Use a prepared statement
+        $sth = $this->pdo->prepare('SELECT COUNT(message_id) FROM Bookmark WHERE user_id = :user_id');
+        $sth->bindParam(':user_id', $this->chat_id);
+
+        try {
+
+            $sth->execute();
+
+        } catch (PDOException $e) {
+
+            echo $e->getMessage();
+
+        }
+
+        $count = $sth->fetchColumn();
+
+        // If the result is valid
+        if ($count !== false) {
+
+            return $count;
+
+        }
+
+        return 0;
 
     }
 
@@ -1279,7 +1438,7 @@ $browse_closure = function($bot, $callback_query) {
     // Get all bookmarks
     $sth = $bot->pdo->prepare('SELECT id, name, description, url FROM Bookmark WHERE user_id = :chat_id');
     $sth->bindParam(':chat_id', $chat_id);
-   
+
     try {
 
         $sth->execute();
@@ -1304,13 +1463,42 @@ $browse_closure = function($bot, $callback_query) {
 
 };
 
+$channel_closure = function($bot, $callback_query) {
+
+    // Get language
+    $bot->getLanguageRedisAsCache();
+
+    // Get channel id
+    $channel_id = $bot->getChannelID();
+
+    // If it is valid (the user has a channel)
+    if ($channel_id != false) {
+
+        // Get channel data and show them to the user
+        $bot->editMessageText($callback_query['message']['message_id'], $bot->getChannelData($channel_id), $bot->keyboard->get());
+
+    } else {
+
+        // Say the user to add the channel
+        $bot->editMessageText($callback_query['message']['message_id'], $bot->local[$bot->language]['AddChannel_Msg'], $bot->keyboard->getBackButton());
+
+        // Add the channel
+        $bot->setStatus(ADD_CHANNEL);
+
+        // Add message id to redis
+        $bot->redis->set($bot->getChatID() . ':message_id', $callback_query['message']['message_id']);
+
+    }
+
+};
+
 // Called when user press a "Skip" button (when adding a bookmark)
 $skip_closure = function($bot, $callback_query) {
 
     // Get language
     $bot->getLanguageRedisAsCache();
 
-    // Get id of the message which the user pressed on 
+    // Get id of the message which the user pressed on
     $message_id = $callback_query['message']['message_id'];
 
     // What is the user skipping?
@@ -1332,25 +1520,23 @@ $skip_closure = function($bot, $callback_query) {
         // User skipped hashtags inserting, save the bookmark
         case GET_HASHTAGS:
 
-            // Get bookmark data from redis
-            $bookmark = $bot->redis->hGetAll($bot->getChatID() . ':bookmark');
-
-            $hashtags = [];
+            // Set hashtags
+            $bot->hashtags = [];
 
             // Save it on the db
-            $bookmark['id'] = $bot->saveBookmark($bookmark, $hashtags);
+            $bot->saveBookmark();
 
             // Update stats
             $bot->setStatus(MENU);
 
             // Add keyboard to edit the bookmark
-            $bot->addEditBookmarkKeyboard($bookmark, $hashtags);
+            $bot->addEditBookmarkKeyboard();
 
             // Add a menu button
             $bot->keyboard->addButton($bot->local[$bot->language]['Menu_Button'], 'callback_data', 'menu');
 
             // Send the bookmark just created
-            $bot->editMessageText($callback_query['message']['message_id'], $bot->formatBookmark($bookmark, $hashtags), $bot->keyboard->get());
+            $bot->editMessageText($callback_query['message']['message_id'], $bot->formatBookmark(), $bot->keyboard->get());
 
             // Delete junk in redis
             $bot->redis->delete($bot->getChatID() . ':bookmark');
@@ -1408,6 +1594,8 @@ $back_closure = function($bot, $callback_query) {
 
             break;
 
+        case ADD_CHANNEL:
+        // No break
         case LANGUAGE:
 
             // Send the user to the menu
@@ -1422,6 +1610,12 @@ $back_closure = function($bot, $callback_query) {
             break;
 
     }
+
+};
+
+$add_channel_closure = function($bot, $message) {
+
+     echo $message['text'];
 
 };
 

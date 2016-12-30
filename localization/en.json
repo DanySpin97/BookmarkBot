@@ -24,6 +24,11 @@
     "UrlNotValid_Msg": "Url not valid",
     "HashtagsNotValid_Msg": "Hashtags not valid",
     "Skipped_Msg": "Skipped",
+    "AddChannel_Msg": "Add channel",
+    "ChannelAdded_Msg": "Channel ADDED",
+    "ChannelTitle_Msg": "Title: ",
+    "BookmarkCount_Msg": "Bookmark in channel:",
+    "ChannelExplanation_Msg": "How and why",
     "Menu_Button": "Menu",
     "Back_Button": "Back",
     "Skip_Button": "Skip",
@@ -42,5 +47,8 @@
     "EditHashtags_Button": "Edit hashtags",
     "DeleteHashtags_Button": "Delete hashtags",
     "Share_Button": "Share",
+    "ChangeChannel_Button": "Change channel",
+    "DeleteChannel_Button": "Delete channel",
+    "Edit_Button": "Edit",
     "Language": "English"
 }

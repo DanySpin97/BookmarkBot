@@ -25,6 +25,7 @@ $bot->addMessageCommand("about", $about_msg_closure);
 $bot->addMessageCommand("help", $help_msg_closure);
 $bot->addCallbackCommand("menu", $menu_closure);
 $bot->addCallbackCommand("browse", $browse_closure);
+$bot->addCallbackCommand("channel", $channel_closure);
 $bot->addCallbackCommand("help", $help_cbq_closure);
 $bot->addCallbackCommand("about", $about_cbq_closure);
 $bot->addCallbackCommand("language", $language_closure);
