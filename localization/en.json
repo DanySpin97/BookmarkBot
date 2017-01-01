@@ -29,6 +29,7 @@
     "ChannelTitle_Msg": "Title: ",
     "BookmarkCount_Msg": "Bookmark in channel:",
     "ChannelExplanation_Msg": "How and why",
+    "NotChannel_Msg": "Not a channel",
     "Menu_Button": "Menu",
     "Back_Button": "Back",
     "Skip_Button": "Skip",
@@ -47,8 +48,11 @@
     "EditHashtags_Button": "Edit hashtags",
     "DeleteHashtags_Button": "Delete hashtags",
     "Share_Button": "Share",
+    "Link_Button": "Link",
+    "UpdateChannel_Button": "Update",
     "ChangeChannel_Button": "Change channel",
     "DeleteChannel_Button": "Delete channel",
     "Edit_Button": "Edit",
+    "Updated_AnswerCallback": "Update!",
     "Language": "English"
 }

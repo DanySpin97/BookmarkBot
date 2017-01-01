@@ -38,7 +38,7 @@ CREATE TABLE Bookmark (
   user_id int NOT NULL,
 
   /* Message id of the bookmark in the channel */
-  message_id int,
+  message_id int DEFAULT 0,
 
   PRIMARY KEY (id),
 
