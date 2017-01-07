@@ -31,7 +31,8 @@ $bot->addCallbackCommand("about", $about_cbq_closure);
 $bot->addCallbackCommand("language", $language_closure);
 $bot->addCallbackCommand("skip", $skip_closure);
 $bot->addCallbackCommand("back", $back_closure);
-$bot->addCallbackCommand("update_channel", $update_channel_closure);
+$bot->addCallbackCommand("deletechannel", $delete_channel_closure);
+$bot->addCallbackCommand("changechannel", $change_channel_closure);
 
 // Start the bot
 $bot->getUpdatesLocal();
