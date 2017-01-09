@@ -23,6 +23,7 @@ $bot->loadLocalization();
 $bot->addMessageCommand("start", $start_closure);
 $bot->addMessageCommand("about", $about_msg_closure);
 $bot->addMessageCommand("help", $help_msg_closure);
+$bot->addMessageCommand("delete_bookmarks", $delete_bookmarks_warning_closure);
 $bot->addCallbackCommand("menu", $menu_closure);
 $bot->addCallbackCommand("browse", $browse_closure);
 $bot->addCallbackCommand("channel", $channel_closure);
@@ -33,6 +34,7 @@ $bot->addCallbackCommand("skip", $skip_closure);
 $bot->addCallbackCommand("back", $back_closure);
 $bot->addCallbackCommand("deletechannel", $delete_channel_closure);
 $bot->addCallbackCommand("changechannel", $change_channel_closure);
+$bot->addCallbackCommand("deletebookmark", $delete_bookmarks_closure);
 
 // Start the bot
 $bot->getUpdatesLocal();

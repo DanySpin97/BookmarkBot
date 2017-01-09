@@ -1589,7 +1589,7 @@ $start_closure = function($bot, $message) {
         }
 
         // Send the start message to the user
-        $this->sendMessage($this->local['en']['Start_Msg'], $this->keyboard->get());
+        $bot->sendMessage($bot->local['en']['Start_Msg'], $bot->keyboard->get());
 
     }
 
@@ -1658,6 +1658,16 @@ $browse_closure = function($bot, $callback_query) {
     } catch (PDOException $e) {
 
         echo $e->getMessage();
+
+    }
+
+    // If there aren't bookmarks to show
+    if ($sth->rowCount() == 0) {
+
+        // Notice the user
+        $bot->answerCallbackQuery($bot->local[$bot->language]['NoBookmarkToShow_AnswerCallback']);
+
+        return;
 
     }
 
@@ -1864,5 +1874,138 @@ $delete_channel_closure = function($bot, $callback_query) {
     $bot->editMessageText($callback_query['message']['message_id'], $bot->menuMessage(), $bot->keyboard->get());
 
     $bot->answerCallbackQuery($bot->local[$bot->language]['DeletedChannel_AnswerCallback'], true);
+
+};
+
+// When user click /delete_bookmarks
+$delete_bookmarks_warning_closure = function ($bot, $message) {
+
+    $bot->getLanguageRedisAsCache();
+
+    // Has this user any bookmark?
+    $sth = $bot->pdo->prepare('SELECT COUNT(id) FROM Bookmark WHERE user_id = :chat_id');
+
+    $chat_id = $bot->getChatID();
+    $sth->bindParam(':chat_id', $chat_id);
+
+    try {
+
+        $sth->execute();
+
+    } catch (PDOException $e) {
+
+        echo $e->getMessage();
+
+    }
+
+    $result = $sth->fetchColumn();
+
+    $sth= null;
+
+    // If he hasn't
+    if ($result == false) {
+
+        // Button for going to the menu
+        $bot->keyboard->addButton($bot->local[$bot->language]['Menu_Button'], 'callback_data', 'menu');
+
+        // Say him that he has no bookmarks to delete
+        $bot->sendMessage($bot->local[$bot->language]['NoBookmarkToDelete_Msg'], $bot->keyboard->get());
+
+        return;
+
+    }
+
+    // Add 2 buttons, one for going to the menu
+    $bot->keyboard->addButton($bot->local[$bot->language]['Menu_Button'], 'callback_data', 'menu');
+
+    // And one for deleting all bookmarks
+    $bot->keyboard->addButton($bot->local[$bot->language]['DeleteBookmarks_Button'], 'callback_data', 'deletebookmark');
+
+    // Ask the user if he is sure he wanna delete the bookmark
+    $bot->sendMessage($bot->local[$bot->language]['DeleteBookmarkWarning_Msg'], $bot->keyboard->get());
+
+};
+
+$delete_bookmarks_closure = function ($bot, $callback_query) {
+
+    $bot->getLanguageredisAsCache();
+
+    // If the user hasn't pressed the button
+    if (!$bot->redis->exists($bot->getChatID() . ':delete_flag')) {
+
+        // Set a flag that will be alive for the next minute
+        $bot->redis->setEx($bot->getChatID() . ':delete_flag', 120, 1);
+
+        $bot->answerCallbackQuery($bot->local[$bot->language]['DeleteBookmarkWarning_AnswerCallback'], true);
+
+        return;
+
+    }
+
+    // Delete all bookmarks from channel
+    $bot->deleteAllBookmarkChannel();
+
+    $chat_id = $bot->getChatID();
+
+    // Get id of each bookmark
+    $sth = $bot->pdo->prepare('SELECT id FROM Bookmark WHERE user_id = :chat_id');
+    $sth->bindParam(':chat_id', $chat_id);
+
+    try {
+
+        $sth->execute();
+
+    } catch (PDOException $e) {
+
+        echo $e->getMessage();
+
+    }
+
+    // Delete all bookmark hashtags
+    $sth2 = $bot->pdo->prepare('DELETE FROM Bookmark_tag WHERE bookmark_id = :bookmark_id');
+
+    while ($row = $sth->fetch()) {
+
+        $sth2->bindParam(':bookmark_id', $row['id']);
+
+        try {
+
+            $sth2->execute();
+
+        } catch (PDOException $e) {
+
+            echo $e->getMessage();
+
+        }
+
+    }
+
+    $sth = null;
+    $sth2 = null;
+
+    // Delete all bookmarks
+    $sth = $bot->pdo->prepare('DELETE FROM Bookmark WHERE user_id = :chat_id');
+    $sth->bindParam(':chat_id', $chat_id);
+
+    try {
+
+        $sth->execute();
+
+    } catch (PDOException $e) {
+
+        echo $e->getMessage();
+
+    }
+
+    $sth = null;
+
+    // Notice the user that the bookmarks has been deleted
+    $bot->answerCallbackQuery($bot->local[$bot->language]['BookmarksDeleted_AnswerCallback']);
+
+    // Send the menu to the user
+    $bot->editMessageText($callback_query['message']['message_id'], $bot->menuMessage(), $bot->keyboard->get());
+
+    // Delete the flag on redis
+    $bot->redis->delete($bot->getChatID() . ':delete_flag');
 
 };
