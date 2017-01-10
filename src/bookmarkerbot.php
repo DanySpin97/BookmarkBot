@@ -65,7 +65,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
             $this->redis->hSet($this->chat_id . ':bookmark', 'description', $message['text']);
 
             // Send the user to next step
-            $new_message_id = ($this->sendMessage($this->local[$this->language]['SendHashtags_Msg'], $this->keyboard->getBackSkipKeyboard()))['message_id'];
+            $new_message_id = ($this->sendMessage($this->local[$this->language]['SendHashtags_Msg'] . $this->local[$this->language]['HashtagsExample_Msg'], $this->keyboard->getBackSkipKeyboard()))['message_id'];
 
             // Update stats
             $this->setStatus(GET_HASHTAGS);
@@ -113,7 +113,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
             } else {
 
                 // Say the user to resend hashtags
-                $new_message_id = ($this->sendMessage($this->local[$this->language]['HashtagsNotValid_Msg'], $this->keyboard->getBackButton()))['message_id'];
+                $new_message_id = ($this->sendMessage($this->local[$this->language]['HashtagsNotValid_Msg'] . $this->local[$this->language]['HashtagsExample_Msg'], $this->keyboard->getBackButton()))['message_id'];
 
                 // Set the new message_id
                 $this->redis->set($this->chat_id . ':message_id', $new_message_id);
@@ -347,7 +347,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
             } else {
 
                 // Say the user to resend hashtags
-                $new_message_id = ($this->sendMessage($this->local[$this->language]['HashtagsNotValid_Msg'], $this->keyboard->getBackButton()))['message_id'];
+                $new_message_id = ($this->sendMessage($this->local[$this->language]['HashtagsNotValid_Msg'] . $this->local[$this->language]['HashtagsExample_Msg'], $this->keyboard->getBackButton()))['message_id'];
 
                 // Set the new message_id
                 $this->redis->set($this->chat_id . ':message_id', $new_message_id);
@@ -604,7 +604,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark(), $this->keyboard->get());
 
                 // Is it a button to edit a bookmark?
-            } elseif (strpos($callback_query['data'], 'edit') !== false) {
+            } elseif (strpos($callback_query['data'], 'edit_') !== false) {
 
                 // Get what the user want to edit (eg. edit_url_idbookmark)
                 $data = explode('_', $callback_query['data']);
@@ -668,7 +668,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                     $this->keyboard->addButton($this->local[$this->language]['DeleteHashtags_Button'], 'callback_data', 'delete_hashtags_' . $data[2]);
 
                     // Say the user to send the new url
-                    $this->editMessageText($callback_query['message']['message_id'], $this->local[$this->language]['EditHashtags_Msg'], $this->keyboard->get());
+                    $this->editMessageText($callback_query['message']['message_id'], $this->local[$this->language]['EditHashtags_Msg'] . $this->local[$this->language]['HashtagsExample_Msg'], $this->keyboard->get());
 
                     // Prepare the bot to receive the new url
                     $this->setStatus(EDIT_HASHTAGS);
@@ -710,7 +710,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                     $this->keyboard->addButton($this->local[$this->language]['Back_Button'], 'callback_data', 'back_' . $data[2]);
 
                     // Say the user to send the new url
-                    $this->editMessageText($callback_query['message']['message_id'], $this->local[$this->language]['AddHashtags_Msg'], $this->keyboard->get());
+                    $this->editMessageText($callback_query['message']['message_id'], $this->local[$this->language]['AddHashtags_Msg'] . $this->local[$this->language]['HashtagsExample_Msg'], $this->keyboard->get());
 
                     // Prepare the bot to receive the new url
                     $this->setStatus(EDIT_HASHTAGS);
@@ -780,7 +780,16 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 // Send the updated bookmark to the user
                 $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark(), $this->keyboard->get());
 
-                // Check if the user choosed a language (choose language start)
+                // Check if the user choosed a language in options
+            } elseif (strpos($callback_query['data'], 'cl_') !== false) {
+
+                    // Get the last two characters (the language choosed)
+                    $this->setLanguageRedisAsCache(substr($callback_query['data'], -2, 2));
+
+                    // Get the user to the menu
+                    $this->editMessageText($callback_query['message']['message_id'], $this->menuMessage(), $this->keyboard->get());
+
+                // Check if the user choosed a language after clicking /start for the first time (choose language start)
             } elseif (strpos($callback_query['data'], 'cls') !== false) {
 
                 // If we could add the user
@@ -1732,7 +1741,7 @@ $skip_closure = function($bot, $callback_query) {
         $bot->redis->hSet($bot->getChatID() . ':bookmark', 'description', 'NULL');
 
         // Say the user to send the hashtags
-        $bot->editMessageText($message_id, $bot->local[$bot->getLanguageRedisAsCache()]['Description_Msg'] . $bot->local[$bot->language]['Skipped_Msg'] . NEW_LINE . $bot->local[$bot->language]['SendHashtags_Msg'], $bot->keyboard->getBackSkipKeyboard());
+        $bot->editMessageText($message_id, $bot->local[$bot->getLanguageRedisAsCache()]['Description_Msg'] . $bot->local[$bot->language]['Skipped_Msg'] . NEW_LINE . $bot->local[$bot->language]['SendHashtags_Msg'] . $bot->local[$bot->language]['HashtagsExample_Msg'], $bot->keyboard->getBackSkipKeyboard());
 
         // Change status
         $bot->setStatus(GET_HASHTAGS);
@@ -2007,5 +2016,12 @@ $delete_bookmarks_closure = function ($bot, $callback_query) {
 
     // Delete the flag on redis
     $bot->redis->delete($bot->getChatID() . ':delete_flag');
+
+};
+
+$same_language_closure = function($bot, $callback_query) {
+
+    // Say the user he choosed the same language the bot is set
+    $bot->answerCallbackQuery($bot->local[$bot->getLanguageRedisAsCache()]['SameLanguage_AnswerCallback']);
 
 };

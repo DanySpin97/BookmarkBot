@@ -35,6 +35,7 @@ $bot->addCallbackCommand("back", $back_closure);
 $bot->addCallbackCommand("deletechannel", $delete_channel_closure);
 $bot->addCallbackCommand("changechannel", $change_channel_closure);
 $bot->addCallbackCommand("deletebookmark", $delete_bookmarks_closure);
+$bot->addCallbackCommand("same/language", $same_language_closure);
 
 // Start the bot
 $bot->getUpdatesLocal();
