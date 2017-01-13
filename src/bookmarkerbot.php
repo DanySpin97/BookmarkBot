@@ -610,6 +610,28 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 // Send the updated bookmark to the user
                 $this->editMessageText($callback_query['message']['message_id'], $this->formatBookmark(), $this->keyboard->get());
 
+                // When a user want to edit a ookmark while browsing them from channel
+            } elseif (strpos($callback_query['data'], 'editbkch_') !== false) {
+
+                // Get bookmark id from callback data
+                $bookmark_id = explode('_', $callback_query['data'])[1];
+
+                // Get bookmark from database
+                $this->getBookmark($bookmark_id);
+
+                // Add keyboard buttons
+                $this->addEditBookmarkKeyboard();
+
+                // Send the messatge to the user
+                $this->sendMessage($this->formatBookmark(), $this->keyboard->get());
+
+                // Delte redis crap
+                $this->redis->delete("{$this->getChatID()}:index");
+                $this->redis->delete("{$this->getChatID()}:bookmark");
+
+                // Change user status
+                $this->setStatus(MENU);
+
                 // Is it a button to edit a bookmark?
             } elseif (strpos($callback_query['data'], 'edit_') !== false) {
 
@@ -726,6 +748,135 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
                 }
 
+                // The user want to delete a bookmark
+            } elseif (strpos($callback_query['data'], 'deletebookmark_') !== false) {
+
+                // If the flag hasn't been set
+                if (!$this->redis->exists("{$this->getChatID()}:deletebookmark_flag")) {
+
+                    // Set it
+                    $this->redis->setEx("{$this->getChatID()}:deletebookmark_flag", 20, 1);
+
+                    // Say the user to click again
+                    $this->answerCallbackQuery($this->local[$this->language]['DeleteBookmarkWarning_AnswerCallback'], true);
+
+                    return;
+
+                }
+
+                // Get what the user want to delete (eg. deletebookmark_idbookmark)
+                $data = explode('_', $callback_query['data']);
+
+                // Delete all hashtags
+                $sth = $this->pdo->prepare('DELETE FROM Bookmark_Tag WHERE bookmark_id = :bookmark_id');
+                $sth->bindParam(':bookmark_id', $data[1]);
+
+                try {
+
+                    $sth->execute();
+
+                } catch(PDOException $e) {
+
+                    echo $e->getMessage();
+
+                }
+
+                $sth = null;
+
+                $sth = $this->pdo->prepare('SELECT message_id FROM Bookmark WHERE bookmark_id = :bookmark_id');
+                $sth->bindParam(':bookmark_id', $data[1]);
+
+                try {
+
+                    $sth->execute();
+
+                } catch(PDOException $e) {
+
+                    echo $e->getMessage();
+
+                }
+
+                $message_id = $sth->fetchColumn();
+
+                // If the bookmark has been sent in a channel
+                if ($message_id != false) {
+
+                    $channel_id = $this->getChannelID();
+
+                    $previous_chat_id = $this->getChatID();
+
+                    $this->setChatID($channel_id);
+
+                    // Say that the bookmark has been deleted
+                    $this->editMessageText($message_id, $this->local[$this->language]['DeletedBookmarkChannel_Msg']);
+
+                    $this->setChatID($previous_chat_id);
+
+                }
+
+                $sth = null;
+
+                // Delete the bookmark
+                $sth = $this->pdo->prepare('DELETE FROM Bookmark WHERE id = :bookmark_id');
+                $sth->bindParam(':bookmark_id', $data[1]);
+
+                try {
+
+                    $sth->execute();
+
+                } catch(PDOException $e) {
+
+                    echo $e->getMessage();
+
+                }
+
+                $sth = null;
+
+                // Go back in bookmark browsing if the user was browsing
+                if ($this->redis->exists("{$this->getChatID()}:index")) {
+
+                    $index = $this->redis->get("{$this->getChatID()}:index");
+
+                    // Get all bookmarks
+                    $sth = $this->pdo->prepare('SELECT id, name, description, url FROM Bookmark WHERE user_id = :chat_id');
+                    $sth->bindParam(':chat_id', $this->chat_id);
+
+                    try {
+
+                        $sth->execute();
+
+                    } catch (PDOException $e) {
+
+                        echo $e->getMessage();
+
+                    }
+
+                    // Paginate the bookmark received
+                    $message = DanySpin97\PhpBotFramework\Utility::paginateItems($sth, $index, $this->keyboard, [$this, 'formatItem'], ITEMS_PER_PAGE);
+
+                    // Add a button to go to the menu
+                    $this->keyboard->addLevelButtons(['text' => $this->local[$this->language]['Menu_Button'], 'callback_data' => 'menu']);
+
+                    // Send the message to the user
+                    $this->editMessageText($callback_query['message']['message_id'], $message, $this->keyboard->get());
+
+                    $sth = null;
+
+                } else {
+
+                    // Send the user to the menu
+                    $this->editMessageText($callback_query['message']['message_id'], $this->menuMessage(), $this->keyboard->get());
+
+                }
+
+                // Delete the flag
+                $this->redis->delete("{$this->getChatID()}:deletebookmark_flag");
+
+                // Say the user the bookmark has been deleted
+                $this->answerCallbackQuery($this->local[$this->language]['BookmarkDeleted_AnswerCallback']);
+
+                return;
+
                 // Check if the user is deleting bookmark description or hashtag
             } elseif (strpos($callback_query['data'], 'delete_') !== false) {
 
@@ -813,6 +964,8 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
             }
 
         }
+
+        $this->answerCallbackQuery();
 
     }
 
@@ -1227,7 +1380,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         $this->chat_id = $channel_id;
 
         // Add a button that will let user edit the bookmark
-        $this->keyboard->addLevelButtons(['text' => $this->local[$this->language]['Edit_Button'], 'callback_data' => 'editfromchannel']);
+        $this->keyboard->addLevelButtons(['text' => $this->local[$this->language]['Edit_Button'], 'callback_data' => 'editbkch_' . $this->bookmark['id']]);
 
         // Send the message to the channel
         $new_message_id = ($this->sendMessage($this->formatBookmark(), $this->keyboard->get()))['message_id'];
@@ -1445,6 +1598,11 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
             $this->keyboard->addButton($this->local[$this->language]['AddHashtags_Button'], 'callback_data', 'add_hashtags_' . $this->bookmark['id']);
 
         }
+
+        $this->keyboard->changeRow();
+
+        // Add a button to add hashtags
+        $this->keyboard->addButton($this->local[$this->language]['DeleteBookmark_Button'], 'callback_data', 'deletebookmark_' . $this->bookmark['id']);
 
         // Change keyboard row
         $this->keyboard->changeRow();
@@ -2074,8 +2232,8 @@ $delete_bookmarks_warning_closure = function ($bot, $message) {
     // And one for deleting all bookmarks
     $bot->keyboard->addButton($bot->local[$bot->language]['DeleteBookmarks_Button'], 'callback_data', 'deletebookmark');
 
-    // Ask the user if he is sure he wanna delete the bookmark
-    $bot->sendMessage($bot->local[$bot->language]['DeleteBookmarkWarning_Msg'], $bot->keyboard->get());
+    // Ask the user if he is sure he wanna delete the bookmarks
+    $bot->sendMessage($bot->local[$bot->language]['DeleteBookmarksWarning_Msg'], $bot->keyboard->get());
 
 };
 
@@ -2089,7 +2247,7 @@ $delete_bookmarks_closure = function ($bot, $callback_query) {
         // Set a flag that will be alive for the next minute
         $bot->redis->setEx($bot->getChatID() . ':delete_flag', 120, 1);
 
-        $bot->answerCallbackQuery($bot->local[$bot->language]['DeleteBookmarkWarning_AnswerCallback'], true);
+        $bot->answerCallbackQuery($bot->local[$bot->language]['DeleteBookmarksWarning_AnswerCallback'], true);
 
         return;
 
