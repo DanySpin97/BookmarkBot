@@ -66,5 +66,6 @@
     "DeleteBookmarkWarning_AnswerCallback": "Click again to delete them.",
     "BookmarksDeleted_AnswerCallback": "Bookmarks deleted!",
     "SameLanguage_AnswerCallback": "Same language",
+    "Register_InlineQuery": "Register",
     "Language": "English"
 }
