@@ -1,7 +1,7 @@
 {
     "Start_Msg": "Welcome to Bookmarker Bot.\nYou can use me to save your bookmarks right on Telegram.\nYou can also add a channel and all your bookmark will be synchronized between me and the channel.",
     "Menu_Msg": "Send a link to add a new bookmark, or press one of the <b>button below:</b>",
-    "Help_Msg": "Help",
+    "Help_Msg": "To start collecting your bookmarks, click /start and then send me a link.\nTo browse all your bookmarks press \"Browse\" in the menu. I'll show you a list with 3 bookmark each page.\nTo edit a bookmark press the title while you're browsing them.\nIf you find a bug send a screenshot to my developer, @danyspin97.",
     "About_Msg": "About",
     "LanguageOption_Msg": "Change bot's <b>language</b> by pressing one of the buttons below:",
     "Url_Msg": "<b>Url</b>: ",

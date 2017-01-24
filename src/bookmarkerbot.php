@@ -27,15 +27,15 @@ define("ITEMS_PER_PAGE", 3);
 define("NEW_LINE", "\n");
 
 // The bot class
-class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
+class BookmarkerBot extends PhpBotFramework\Bot {
 
     // Add the function for processing messages
     protected function processMessage($message) {
 
         // Get language
-        $this->getLanguageRedisAsCache();
+        $this->getLanguageRedis();
 
-        $text = $this->getMessageText();
+        $text = $message->getText();
 
         // We did not receive an url so we are expecting another message for bookmark data
         switch($this->getStatus()) {
@@ -90,7 +90,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
             $message_id = $this->redis->get($this->getChatID() . ':message_id');
 
             // Get hashtags from message
-            $hashtags = DanySpin97\PhpBotFramework\Utility::getHashtags($text);
+            $hashtags = PhpBotFramework\Entities\Text::getHashtags($text);
 
             // If there are hashtags in the message
             if (!empty($hashtags)) {
@@ -300,7 +300,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
             $message_id = $this->redis->get($this->getChatID() . ':message_id');
 
             // Get hashtags from message
-            $hashtags = DanySpin97\PhpBotFramework\Utility::getHashtags($text);
+            $hashtags = PhpBotFramework\Entities\Text::getHashtags($text);
 
             // If there are hashtags in the message
             if (!empty($hashtags)) {
@@ -473,7 +473,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                     $this->updateBookmarkChannel();
 
                     // Update the message with the info about the channel
-                    $this->sendMessage($this->local[$this->getLanguageRedisAsCache()]['ChannelAdded_Msg'] . NEW_LINE . $this->getChannelData($channel_id), $this->keyboard->get());
+                    $this->sendMessage($this->local[$this->getLanguageRedis()]['ChannelAdded_Msg'] . NEW_LINE . $this->getChannelData($channel_id), $this->keyboard->get());
 
                     // Delete junk
                     $this->redis->delete($this->getChatID() . ':message_id');
@@ -547,9 +547,9 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
     protected function processCallbackQuery($callback_query) {
 
         // Get language from redis
-        $this->getLanguageRedisAsCache();
+        $this->getLanguageRedis();
 
-        $cb_data = $this->getCallbackData();
+        $cb_data = $callback_query->getData();
 
         // If data is set
         if (isset($cb_data)) {
@@ -594,7 +594,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 }
 
                 // Paginate the bookmark received
-                $message = DanySpin97\PhpBotFramework\Utility::paginateItems($sth, $data[1], $this->keyboard, [$this, 'formatItem'], ITEMS_PER_PAGE);
+                $message = PhpBotFramework\Utilities\Paginator::paginateItems($sth, $data[1], $this->keyboard, [$this, 'formatItem'], ITEMS_PER_PAGE);
 
                 // Add a button to go to the menu
                 $this->keyboard->addLevelButtons(['text' => $this->local[$this->language]['Menu_Button'], 'callback_data' => 'menu']);
@@ -874,7 +874,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                     }
 
                     // Paginate the bookmark received
-                    $message = DanySpin97\PhpBotFramework\Utility::paginateItems($sth, $index, $this->keyboard, [$this, 'formatItem'], ITEMS_PER_PAGE);
+                    $message = PhpBotFramework\Utilities\Paginator::paginateItems($sth, $index, $this->keyboard, [$this, 'formatItem'], ITEMS_PER_PAGE);
 
                     // Add a button to go to the menu
                     $this->keyboard->addLevelButtons(['text' => $this->local[$this->language]['Menu_Button'], 'callback_data' => 'menu']);
@@ -964,7 +964,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
             } elseif (strpos($cb_data, 'cl_') !== false) {
 
                 // Get the last two characters (the language choosed)
-                $this->setLanguageRedisAsCache(substr($cb_data, -2, 2));
+                $this->setLanguageRedis(substr($cb_data, -2, 2));
 
                 // Get the user to the menu
                 $this->editMessageText($callback_query['message']['message_id'], $this->menuMessage(), $this->keyboard->get());
@@ -976,7 +976,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
                 if ($this->addUser($this->getChatID())) {
 
                     // Get the last two characters (the language choosed)
-                    $this->setLanguageRedisAsCache(substr($cb_data, -2, 2));
+                    $this->setLanguageRedis(substr($cb_data, -2, 2));
 
                     // Get the user to the menu
                     $this->editMessageText($callback_query['message']['message_id'], $this->menuMessage(), $this->keyboard->get());
@@ -997,7 +997,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
         $this->getLanguageredisAsCache();
 
         // Get data
-        $text = $this->getInlineQuery();
+        $text = $inline_query->getQuery();
 
         // Is the user registred in the database?
         $sth = $this->pdo->prepare('SELECT COUNT(chat_id) FROM "User" WHERE chat_id = :chat_id');
@@ -1027,7 +1027,7 @@ class BookmarkerBot extends DanySpin97\PhpBotFramework\Bot {
 
         $sth = null;
 
-        $inline_query_handler = new DanySpin97\PhpBotFramework\InlineQueryResults();
+        $inline_query_handler = new PhpBotFramework\Entities\InlineQueryResults();
 
         // If the query is empty
         if (!isset($text) || $text === '') {
@@ -1887,7 +1887,7 @@ $menu_closure = function($bot, $callback_query) {
     $bot->redis->delete($bot->getChatID() . ':bookmark_id');
 
     // Get language
-    $bot->getLanguageRedisAsCache();
+    $bot->getLanguageRedis();
 
     // Get the user to the menu
     $bot->editMessageText($callback_query['message']['message_id'], $bot->menuMessage(), $bot->keyboard->get());
@@ -1899,7 +1899,10 @@ $start_closure = function($bot, $message) {
 
     // Is the user registred in the database?
     $sth = $bot->pdo->prepare('SELECT COUNT(chat_id) FROM "User" WHERE chat_id = :chat_id');
-    $sth->bindParam(':chat_id', $message['from']['id']);
+
+    $chat_id = $bot->getChatID();
+    $sth->bindParam(':chat_id', $chat_id);
+
     try {
 
         $sth->execute();
@@ -1916,7 +1919,7 @@ $start_closure = function($bot, $message) {
 
     if ($user_exists != false) {
 
-        $bot->getLanguageRedisAsCache();
+        $bot->getLanguageRedis();
 
         // Send the user the menu message
         $bot->sendMessage($bot->menuMessage(), $bot->keyboard->get());
@@ -1949,7 +1952,7 @@ $start_closure = function($bot, $message) {
 
 $help_msg_closure = function($bot, $message) {
 
-    $bot->keyboard->AddLevelButtons(['text' => $bot->local[$bot->getLanguageRedisAsCache()]['Menu_Button'], 'callback_data' => 'menu']);
+    $bot->keyboard->AddLevelButtons(['text' => $bot->local[$bot->getLanguageRedis()]['Menu_Button'], 'callback_data' => 'menu']);
 
     $bot->sendMessage($bot->local[$bot->language]['Help_Msg'], $bot->keyboard->get());
 
@@ -1957,7 +1960,7 @@ $help_msg_closure = function($bot, $message) {
 
 $about_msg_closure = function($bot, $message) {
 
-    $bot->keyboard->addLevelButtons(['text' => $bot->local[$bot->getLanguageRedisAsCache()]['Menu_Button'], 'callback_data' => 'menu']);
+    $bot->keyboard->addLevelButtons(['text' => $bot->local[$bot->getLanguageRedis()]['Menu_Button'], 'callback_data' => 'menu']);
 
     $bot->sendMessage($bot->local[$bot->language]['About_Msg'], $bot->keyboard->get());
 
@@ -1965,7 +1968,7 @@ $about_msg_closure = function($bot, $message) {
 
 $help_cbq_closure = function($bot, $callback_query) {
 
-    $bot->keyboard->addButton($bot->local[$bot->getLanguageRedisAsCache()]['Menu_Button'], 'callback_data', 'menu');
+    $bot->keyboard->addButton($bot->local[$bot->getLanguageRedis()]['Menu_Button'], 'callback_data', 'menu');
 
     $bot->editMessageText($callback_query['message']['message_id'], $bot->local[$bot->language]['Help_Msg'], $bot->keyboard->get());
 
@@ -1974,7 +1977,7 @@ $help_cbq_closure = function($bot, $callback_query) {
 // Called when user press "About" button in menu
 $about_cbq_closure = function($bot, $callback_query) {
 
-    $bot->keyboard->addButton($bot->local[$bot->getLanguageRedisAsCache()]['Menu_Button'], 'callback_data', 'menu');
+    $bot->keyboard->addButton($bot->local[$bot->getLanguageRedis()]['Menu_Button'], 'callback_data', 'menu');
 
     $bot->editMessageText($callback_query['message']['message_id'], $bot->local[$bot->language]['About_Msg'], $bot->keyboard->get());
 
@@ -1983,7 +1986,7 @@ $about_cbq_closure = function($bot, $callback_query) {
 // Called when user want to change language in menu
 $language_closure = function($bot, $callback_query) {
 
-    $bot->getLanguageRedisAsCache();
+    $bot->getLanguageRedis();
 
     $bot->setStatus(LANGUAGE);
 
@@ -1995,7 +1998,7 @@ $language_closure = function($bot, $callback_query) {
 $browse_closure = function($bot, $callback_query) {
 
     // Get language
-    $bot->getLanguageRedisAsCache();
+    $bot->getLanguageRedis();
 
     $chat_id = $bot->getChatID();
 
@@ -2024,7 +2027,7 @@ $browse_closure = function($bot, $callback_query) {
     }
 
     // Paginate the bookmark received
-    $message = DanySpin97\PhpBotFramework\Utility::paginateItems($sth, 1, $bot->keyboard, [$bot, 'formatItem'], ITEMS_PER_PAGE);
+    $message = PhpBotFramework\Utilities\Paginator::paginateItems($sth, 1, $bot->keyboard, [$bot, 'formatItem'], ITEMS_PER_PAGE);
 
     // Add a button to go to the menu
     $bot->keyboard->addLevelButtons(['text' => $bot->local[$bot->language]['Menu_Button'], 'callback_data' => 'menu']);
@@ -2040,7 +2043,7 @@ $browse_closure = function($bot, $callback_query) {
 $channel_closure = function($bot, $callback_query) {
 
     // Get language
-    $bot->getLanguageRedisAsCache();
+    $bot->getLanguageRedis();
 
     // Get channel id
     $channel_id = $bot->getChannelID();
@@ -2070,7 +2073,7 @@ $channel_closure = function($bot, $callback_query) {
 $skip_closure = function($bot, $callback_query) {
 
     // Get language
-    $bot->getLanguageRedisAsCache();
+    $bot->getLanguageRedis();
 
     // Get id of the message which the user pressed on
     $message_id = $callback_query['message']['message_id'];
@@ -2084,7 +2087,7 @@ $skip_closure = function($bot, $callback_query) {
         $bot->redis->hSet($bot->getChatID() . ':bookmark', 'description', 'NULL');
 
         // Say the user to send the hashtags
-        $bot->editMessageText($message_id, $bot->local[$bot->getLanguageRedisAsCache()]['Description_Msg'] . $bot->local[$bot->language]['Skipped_Msg'] . NEW_LINE . $bot->local[$bot->language]['SendHashtags_Msg'] . $bot->local[$bot->language]['HashtagsExample_Msg'], $bot->keyboard->getBackSkipKeyboard());
+        $bot->editMessageText($message_id, $bot->local[$bot->getLanguageRedis()]['Description_Msg'] . $bot->local[$bot->language]['Skipped_Msg'] . NEW_LINE . $bot->local[$bot->language]['SendHashtags_Msg'] . $bot->local[$bot->language]['HashtagsExample_Msg'], $bot->keyboard->getBackSkipKeyboard());
 
         // Change status
         $bot->setStatus(GET_HASHTAGS);
@@ -2127,7 +2130,7 @@ $skip_closure = function($bot, $callback_query) {
 $back_closure = function($bot, $callback_query) {
 
     // Get language
-    $bot->getLanguageRedisAsCache();
+    $bot->getLanguageRedis();
 
     // Get id the message which the user pressed the button
     $message_id = $callback_query['message']['message_id'];
@@ -2191,7 +2194,7 @@ $back_closure = function($bot, $callback_query) {
 
 $change_channel_closure = function($bot, $callback_query) {
 
-    $bot->getLanguageRedisAsCache();
+    $bot->getLanguageRedis();
 
     $bot->editMessageText($callback_query['message']['message_id'], $bot->local[$bot->language]['SendNewChannel_Msg'], $bot->keyboard->getBackButton());
 
@@ -2201,7 +2204,7 @@ $change_channel_closure = function($bot, $callback_query) {
 
 $delete_channel_closure = function($bot, $callback_query) {
 
-    $bot->getLanguageRedisAsCache();
+    $bot->getLanguageRedis();
 
     $bot->deleteAllBookmarkChannel();
 
@@ -2232,7 +2235,7 @@ $delete_channel_closure = function($bot, $callback_query) {
 // When user click /delete_bookmarks
 $delete_bookmarks_warning_closure = function ($bot, $message) {
 
-    $bot->getLanguageRedisAsCache();
+    $bot->getLanguageRedis();
 
     // Has this user any bookmark?
     $sth = $bot->pdo->prepare('SELECT COUNT(id) FROM Bookmark WHERE user_id = :chat_id');
@@ -2365,6 +2368,6 @@ $delete_bookmarks_closure = function ($bot, $callback_query) {
 $same_language_closure = function($bot, $callback_query) {
 
     // Say the user he choosed the same language the bot is set
-    $bot->answerCallbackQuery($bot->local[$bot->getLanguageRedisAsCache()]['SameLanguage_AnswerCallback']);
+    $bot->answerCallbackQuery($bot->local[$bot->getLanguageRedis()]['SameLanguage_AnswerCallback']);
 
 };
