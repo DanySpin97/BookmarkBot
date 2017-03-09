@@ -3,6 +3,8 @@
 // Include the framework
 require './vendor/autoload.php';
 require './src/bookmarkerbot.php';
+require './src/message_commands.php';
+require './src/callback_commands.php';
 require './src/data.php';
 
 // Create the bot
