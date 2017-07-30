@@ -1,6 +1,6 @@
 CREATE TYPE language AS ENUM('en', 'it', 'fr', 'de', 'ru', 'fa', 'hi');
 
-CREATE TABLE "User" (
+CREATE TABLE TelegramUser (
   chat_id int,
   language language DEFAULT 'en',
 
@@ -43,7 +43,7 @@ CREATE TABLE Bookmark (
   PRIMARY KEY (id),
 
   /* References the user_id to the user table */
-  FOREIGN KEY (user_id) REFERENCES "User" (chat_id)
+  FOREIGN KEY (user_id) REFERENCES TelegramUser (chat_id)
 
 );
 

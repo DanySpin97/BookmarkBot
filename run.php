@@ -3,9 +3,12 @@
 // Include the framework
 require './vendor/autoload.php';
 require './src/bookmarkerbot.php';
+require './src/message.php';
+require './src/callback_query.php';
+require './src/inline_query.php';
 require './src/message_commands.php';
 require './src/callback_commands.php';
-require './src/data.php';
+require './data.php';
 
 // Create the bot
 $bot = new BookmarkerBot($token);
@@ -16,10 +19,21 @@ $bot->redis = new Redis();
 // Connect to redis database
 $bot->redis->connect('127.0.0.1');
 
-$bot->pdo = new PDO("pgsql:host=localhost;port=5432;dbname=$database_name;user=$user;password=$password");
+$bot->database->connect(
+    [
+        'adapter' => 'pgsql',
+        'username' => $username,
+        'password' => $password,
+        'dbname' => $database_name
+    ]
+);
 
 // Load localization from directory
-$bot->loadLocalization();
+$bot->local->loadAllLanguages();
+
+$bot->answerUpdate["message"] = $message;
+$bot->answerUpdate["callback_query"] = $callback_query;
+$bot->answerUpdate["inline_query"] = $inline_query;
 
 // Add the answers for commands
 $bot->addMessageCommand("start", $start_closure);

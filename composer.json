@@ -1,5 +1,5 @@
 {
-    "require": {
-        "danyspin97/php-bot-framework": "dev-master@dev"
-    }
+  "require": {
+    "danyspin97/php-bot-framework": "dev-3.0/dev"
+  }
 }

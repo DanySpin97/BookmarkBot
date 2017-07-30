@@ -2,19 +2,14 @@
 
 // Called on /start message
 $start_closure = function($bot, $message) {
-
     // Is the user registred in the database?
-    $sth = $bot->pdo->prepare('SELECT COUNT(chat_id) FROM "User" WHERE chat_id = :chat_id');
+    $sth = $bot->database->pdo->prepare('SELECT COUNT(chat_id) FROM TelegramUser WHERE chat_id = :chat_id');
 
-    $chat_id = $bot->getChatID();
-    $sth->bindParam(':chat_id', $chat_id);
+    $sth->bindParam(':chat_id', $bot->chat_id);
 
     try {
-
         $sth->execute();
-
     } catch (PDOException $e) {
-
         echo $e->getMessage();
 
     }
@@ -24,8 +19,7 @@ $start_closure = function($bot, $message) {
     $sth = null;
 
     if ($user_exists != false) {
-
-        $bot->getLanguageRedis();
+        $bot->local->getLanguageRedis();
 
         // Send the user the menu message
         $bot->sendMessage($bot->menuMessage(), $bot->keyboard->get());
@@ -37,42 +31,37 @@ $start_closure = function($bot, $message) {
         $bot->redis->delete($bot->getChatID() . ':index');
         $bot->redis->delete($bot->getChatID() . ':bookmark_id');
 
-        $bot->setStatus(MENU);
-
+        $bot->status->setStatus(MENU);
     } else {
-
         // Iterate over all languages
-        foreach ($bot->local as $language_index => $localization) {
-
+        foreach ($bot->local->local as $language_index => $localization) {
             // Add a button for each
-            $bot->keyboard->addLevelButtons(['text' => $localization['Language'], 'callback_data' => 'cls_' . $language_index]);
-
+            $bot->keyboard->addButton($localization['Language'], 'callback_data', 'cls_' . $language_index);
+            $bot->keyboard->changeRow();
         }
 
         // Send the start message to the user
-        $bot->sendMessage($bot->local['en']['Start_Msg'], $bot->keyboard->get());
-
+        $bot->sendMessage($bot->local->local['en']['Start_Msg'], $bot->keyboard->get());
     }
-
 };
 
 $help_msg_closure = function($bot, $message) {
 
-    $bot->keyboard->AddLevelButtons(['text' => $bot->local[$bot->getLanguageRedis()]['Menu_Button'], 'callback_data' => 'menu']);
+    $bot->keyboard->AddLevelButtons(['text' => $bot->local->getStr('Menu_Button'), 'callback_data' => 'menu']);
 
-    $bot->sendMessage($bot->local[$bot->language]['Help_Msg'], $bot->keyboard->get());
+    $bot->sendMessage($bot->local->getStr('Help_Msg'), $bot->keyboard->get());
 
 };
 
 $about_msg_closure = function($bot, $message) {
 
-    $bot->getLanguageRedis();
+    $bot->local->getLanguageRedis();
 
-    $bot->keyboard->addButton($bot->local[$bot->language]['Contact_Button'], 'url', 't.me/danyspin97');
-    $bot->keyboard->addButton($bot->local[$bot->language]['Framework_Button'], 'url', 'github.com/danyspin97/PhpBotFramework');
+    $bot->keyboard->addButton($bot->local->getStr('Contact_Button'), 'url', 't.me/danyspin97');
+    $bot->keyboard->addButton($bot->local->getStr('Framework_Button'), 'url', 'github.com/danyspin97/PhpBotFramework');
 
-    $bot->keyboard->addLevelButtons(['text' => $bot->local[$bot->language]['Menu_Button'], 'callback_data' => 'menu']);
+    $bot->keyboard->addLevelButtons(['text' => $bot->local->getStr('Menu_Button'), 'callback_data' => 'menu']);
 
-    $bot->sendMessage($bot->local[$bot->language]['About_Msg'], $bot->keyboard->get());
+    $bot->sendMessage($bot->local->getStr('About_Msg'), $bot->keyboard->get());
 
 };
