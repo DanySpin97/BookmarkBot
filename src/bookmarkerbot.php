@@ -667,7 +667,7 @@ class BookmarkerBot extends PhpBotFramework\Bot
 
         $this->useChatId(
             $channel_id,
-            function () {
+            function () use ($sth) {
                 // Iterate over all results
                 while ($row = $sth->fetch()) {
 
