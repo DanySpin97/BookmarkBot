@@ -17,7 +17,7 @@ $bot = new BookmarkerBot($token);
 $bot->redis = new Redis();
 
 // Connect to redis database
-$bot->redis->connect('127.0.0.1');
+$bot->redis->connect('127.0.0.1', $redis_port);
 
 $bot->database->connect(
     [
