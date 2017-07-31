@@ -13,6 +13,7 @@ $menu_closure = function($bot, $callback_query) {
     // Get the user to the menu
     $bot->editMessageText($callback_query['message']['message_id'], $bot->menuMessage(), $bot->keyboard->get());
 
+    $bot->answerCallbackQuery();
 };
 
 $help_cbq_closure = function($bot, $callback_query) {
@@ -21,6 +22,7 @@ $help_cbq_closure = function($bot, $callback_query) {
 
     $bot->editMessageText($callback_query['message']['message_id'], $bot->local->getStr('Help_Msg'), $bot->keyboard->get());
 
+    $bot->answerCallbackQuery();
 };
 
 // Called when user press "About" button in menu
@@ -37,6 +39,7 @@ $about_cbq_closure = function($bot, $callback_query) {
 
     $bot->editMessageText($callback_query['message']['message_id'], $bot->local->getStr('About_Msg'), $bot->keyboard->get());
 
+    $bot->answerCallbackQuery();
 };
 
 // Called when user want to change language in menu
@@ -48,6 +51,7 @@ $language_closure = function($bot, $callback_query) {
 
     $bot->editMessageText($callback_query['message']['message_id'], $bot->local->getStr('LanguageOption_Msg'), $bot->keyboard->getChooseLanguageKeyboard());
 
+    $bot->answerCallbackQuery();
 };
 
 // Will be called each time the user press "Browse" in the menu
@@ -94,6 +98,7 @@ $browse_closure = function($bot, $callback_query) {
     // Update the index on redis db
     $bot->redis->set($bot->getChatID() . ':index', 1);
 
+    $bot->answerCallbackQuery();
 };
 
 $channel_closure = function($bot, $callback_query) {
@@ -123,6 +128,7 @@ $channel_closure = function($bot, $callback_query) {
 
     }
 
+    $bot->answerCallbackQuery();
 };
 
 // Called when user press a "Skip" button (when adding a bookmark)
@@ -180,6 +186,7 @@ $skip_closure = function($bot, $callback_query) {
 
     }
 
+    $bot->answerCallbackQuery();
 };
 
 // Called on "Back" button pressed
@@ -246,6 +253,7 @@ $back_closure = function($bot, $callback_query) {
 
     }
 
+    $bot->answerCallbackQuery();
 };
 
 $change_channel_closure = function($bot, $callback_query) {
@@ -285,7 +293,6 @@ $delete_channel_closure = function($bot, $callback_query) {
     $bot->editMessageText($callback_query['message']['message_id'], $bot->menuMessage(), $bot->keyboard->get());
 
     $bot->answerCallbackQuery($bot->local->getStr('DeletedChannel_AnswerCallback'), true);
-
 };
 
 // When user click /delete_bookmarks
@@ -323,7 +330,6 @@ $delete_bookmarks_warning_closure = function ($bot, $message) {
         $bot->sendMessage($bot->local->getStr('NoBookmarkToDelete_Msg'), $bot->keyboard->get());
 
         return;
-
     }
 
     // Add 2 buttons, one for going to the menu
@@ -335,6 +341,7 @@ $delete_bookmarks_warning_closure = function ($bot, $message) {
     // Ask the user if he is sure he wanna delete the bookmarks
     $bot->sendMessage($bot->local->getStr('DeleteBookmarksWarning_Msg'), $bot->keyboard->get());
 
+    $bot->answerCallbackQuery();
 };
 
 $delete_bookmarks_closure = function ($bot, $callback_query) {
@@ -419,11 +426,11 @@ $delete_bookmarks_closure = function ($bot, $callback_query) {
     // Delete the flag on redis
     $bot->redis->delete($bot->getChatID() . ':delete_flag');
 
+    $bot->answerCallbackQuery();
 };
 
 $same_language_closure = function($bot, $callback_query) {
 
     // Say the user he choosed the same language the bot is set
     $bot->answerCallbackQuery($bot->local->getStr('SameLanguage_AnswerCallback'));
-
 };
